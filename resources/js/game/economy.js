@@ -6,6 +6,7 @@ import {
     ITEM_SETS,
 } from './constants.js';
 import { trackQuestProgress } from './quests.js';
+import { calcAscensionAncestralReward, calcXpForLevel } from './formulas.js';
 
 // ==========================================
 // ECONOMIA — Construções, Loot, Ferreiro
@@ -602,62 +603,125 @@ export function calcMonsterMaterialDrops(state, monster) {
 }
 
 // ==========================================
-// ASCENSÃO & PRESTÍGIO (GDD: Seção 21)
+// ASCENSÃO & PRESTÍGIO (GDD Expansão 1.4)
 // ==========================================
 
 export function calcAscensionReward(state) {
     const lvl = state.hero?.level || 1;
-    if (lvl < 50) return 0;
-    // Nível 50 = 10 Diamantes base + escala por nível e zona
-    return Math.floor((lvl - 45) * 2 + (state.zone || 1) * 3);
+    if (lvl < 25) return 0;
+    // GDD: floor((nível - 20) × 1 + zonaMáxima × 0.5)
+    return calcAscensionAncestralReward(lvl, state.maxZone || 1);
 }
 
 export function performAscension(state) {
-    const rewardDiamonds = calcAscensionReward(state);
-    if (rewardDiamonds <= 0) return { ok: false, msg: 'Requer Nível 50 ou superior para Ascender!' };
+    const rewardAncestral = calcAscensionReward(state);
+    if (rewardAncestral <= 0) return { ok: false, msg: 'Requer Nível 25 ou superior para Ascender!' };
 
-    // Incrementa contagem de ascensão e diamantes
+    // Incrementa contagem de ascensão e Diamantes Ancestrais
     if (!state.ascension) {
-        state.ascension = { count: 0, diamonds: 0, perks: { dmg: 0, gold: 0, xp: 0, drop: 0 } };
+        state.ascension = { count: 0, totalAncestralEarned: 0, perks: { dmg: 0, gold: 0, xp: 0, drop: 0 } };
     }
     state.ascension.count++;
-    state.ascension.diamonds = (state.ascension.diamonds || 0) + rewardDiamonds;
-    state.resources.diamonds = (state.resources.diamonds || 0) + rewardDiamonds;
+    state.ascension.totalAncestralEarned = (state.ascension.totalAncestralEarned || 0) + rewardAncestral;
+    state.resources.ancestralDiamonds = (state.resources.ancestralDiamonds || 0) + rewardAncestral;
 
-    // Reseta herói, atributos e equipamentos (preserva pets, bestiário, conquistas e perks de ascensão)
+    // ============================================================
+    // RESET COMPLETO — "perde tudo, exceto o prestígio" (GDD 1.4)
+    // ============================================================
+
+    // 1. Herói: nível, XP, atributos, HP, energia, mana, pontos
     state.hero.level = 1;
     state.hero.xp = 0;
-    state.hero.xpMax = 100;
-    state.hero.hp = 100;
+    state.hero.nextXp = calcXpForLevel(1);
+    state.hero.hp = 50;
+    state.hero.energy = 30;
+    state.hero.mana = 30;
     state.hero.isDead = false;
-    state.hero.stats = { str: 10, def: 5, agi: 5, int: 5, lck: 1 };
+    state.hero.isRecovering = false;
+    state.hero.pe = 0;
     state.hero.statPoints = 0;
+    state.hero.specialization = null;
 
+    // 2. Atributos base
+    state.baseStats = {
+        hpMax: 50,
+        str: 1, def: 1, int: 1, agi: 1, lck: 1,
+        per: 1, reg: 1, ene: 1,
+        energyMax: 20, energyReg: 0.5,
+        manaMax: 20, manaReg: 0.5,
+    };
+
+    // 3. Recursos (todos resetam, exceto ancestralDiamonds)
     state.resources.gold = 0;
+    state.resources.diamond = 0;
     state.resources.wood = 0;
     state.resources.scrap = 0;
     state.resources.iron = 0;
     state.resources.essence = 0;
+    // state.resources.ancestralDiamonds — preservado!
 
+    // 4. Equipamento e Inventário
     state.inventory = [];
     state.equipment = { weapon: null, shield: null, helmet: null, chest: null, legs: null, boots: null, ring: null, amulet: null };
+    state.inventoryMaxSlots = 20;
 
-    state.zone = 1;
-    state.maxZone = 1;
-    state.killsInZone = 0;
+    // 5. Domínio (fortificação e construções)
     state.domainLevel = 0;
     for (const b in state.buildings) {
         state.buildings[b].qty = 0;
     }
+
+    // 6. Árvore de Habilidades (pontos e nós comprados)
     for (const s in state.skills) {
         state.skills[s].level = 0;
     }
+
+    // 7. Companheiros / Pets (resetam)
+    state.pets = {
+        tamerUnlocked: false,
+        owned: [],
+        active: null,
+    };
+    state.petExpeditions = [];
+
+    // 8. Bestiário e marcos de abate (resetam — concedem bônus de dano/drop)
+    state.bestiary = {};
+
+    // 9. Missões em andamento
+    state.quests = [];
+
+    // 10. Progresso da Torre (maxFloor volta a 1)
+    state.tower = {
+        floor: 1, maxFloor: 1, inBattle: false,
+        heroHp: 100, heroHpMax: 100, heroAtkTimer: 0,
+        monster: null, modifier: null, eventRoom: null, logs: [],
+    };
+
+    // 11. Zona de exploração
+    state.zone = 1;
+    state.maxZone = 1;
+    state.killsInZone = 0;
+    state.totalKills = 0;
+    state.bossSafeMode = false;
+
+    // 12. Oráculo e outros
+    state.oracleBuff = null;
+    state.isExploring = false;
+    state.monster = null;
     state.marketPurchases = { wood: 0, scrap: 0, iron: 0, essence: 0 };
+    state.forgeCount = 0;
+    state.statResets = 0;
+
+    // 13. Cerco da Vila
+    state.villageSiege = {
+        active: false, timerSec: 180, endsAt: 0,
+        monster: null, buffExpiresAt: 0, nextCheckAt: 0,
+    };
 
     return {
         ok: true,
-        diamonds: rewardDiamonds,
-        msg: `✨ Ascensão realizada com glória! Você renasceu e obteve +${rewardDiamonds} 💎 Diamantes!`,
+        ancestralDiamonds: rewardAncestral,
+        msg: `✨ Ascensão realizada com glória! Você renasceu e obteve +${rewardAncestral} 💠 Diamantes Ancestrais!`,
     };
 }
 
@@ -668,9 +732,11 @@ export function buyAscensionPerk(state, perkId) {
 
     const currentLvl = state.ascension.perks[perkId] || 0;
     const cost = perkDef.cost + currentLvl; // custo escala com nível
-    if ((state.resources.diamonds || 0) < cost) return false;
 
-    state.resources.diamonds -= cost;
+    // GDD Expansão 1.4: Perks cobrados em Diamante Ancestral
+    if ((state.resources.ancestralDiamonds || 0) < cost) return false;
+
+    state.resources.ancestralDiamonds -= cost;
     state.ascension.perks[perkId] = currentLvl + 1;
     return true;
 }

@@ -6,6 +6,12 @@ import {
     BOSS_SUFFIXES,
     TOWER_MODIFIERS,
 } from './constants.js';
+import {
+    calcMonsterHp, calcMonsterDmg, calcBossHp, calcBossDmg,
+    calcMonsterGold, calcBossGold, calcMonsterXp, calcBossXp,
+    calcTowerGuardianHp, calcTowerGuardianDmg,
+    calcTowerGuardianDef, calcTowerGuardianAtkSpeed,
+} from './formulas.js';
 
 // ==========================================
 // GERAÇÃO DE MONSTROS
@@ -51,8 +57,8 @@ export function createMonster(zone, killsInZone, bossSafeMode = false) {
     const isBoss = killsInZone >= 9 && !bossSafeMode;
 
     if (isBoss) {
-        const hp  = Math.floor(25 * Math.pow(1.35, zone - 1));
-        const dmg = Math.floor(10 * Math.pow(1.30, zone));
+        const hp  = calcBossHp(zone);
+        const dmg = calcBossDmg(zone);
         return {
             name:      generateBossName(),
             baseType:  'boss',
@@ -66,14 +72,14 @@ export function createMonster(zone, killsInZone, bossSafeMode = false) {
             isBoss:    true,
             isHit:     false,
             hitTimer:  0,
-            gold:      Math.floor(25 * Math.pow(1.2, zone)),
-            xp:        Math.floor(50 * Math.pow(1.15, zone)),
+            gold:      calcBossGold(zone),
+            xp:        calcBossXp(zone),
         };
     }
 
     const baseType = pick(getTypesForZone(zone));
-    const hp  = Math.floor(5 * Math.pow(1.35, zone - 1) * baseType.hpMult);
-    const dmg = Math.floor(6  * Math.pow(1.30, zone) * baseType.dmgMult);
+    const hp  = Math.floor(calcMonsterHp(zone) * baseType.hpMult);
+    const dmg = Math.floor(calcMonsterDmg(zone) * baseType.dmgMult);
 
     return {
         name:     generateMonsterName(baseType),
@@ -88,8 +94,8 @@ export function createMonster(zone, killsInZone, bossSafeMode = false) {
         isBoss:   false,
         isHit:    false,
         hitTimer: 0,
-        gold:     Math.floor(7 * Math.pow(1.2, zone) * baseType.hpMult),
-        xp:       Math.floor(15 * Math.pow(1.15, zone)),
+        gold:     calcMonsterGold(zone, baseType.hpMult),
+        xp:       calcMonsterXp(zone),
     };
 }
 
@@ -426,11 +432,12 @@ export function generateTowerGuardian(floor) {
     const name = `${TOWER_BOSS_NAMES[nameIndex]} (Andar ${floor})`;
     const icon = TOWER_ICONS[(floor - 1) % TOWER_ICONS.length];
 
-    // Escalonamento desafiador (2.5x a 4x mais forte que exploração)
-    const hp = Math.floor(180 + (floor * 80) + Math.pow(floor, 1.48) * 12);
-    const damage = Math.floor(15 + (floor * 7.5) + Math.pow(floor, 1.22) * 2.5);
-    const def = Math.floor(6 + (floor * 2.8));
-    const atkSpeed = Math.max(0.85, 2.2 - (floor * 0.012));
+    // GDD Expansão 1.2: Base exponencial da Exploração × ratio do andar
+    // ratio(andar) = min(4.0, 2.5 + andar × 0.03)
+    const hp = calcTowerGuardianHp(floor);
+    const damage = calcTowerGuardianDmg(floor);
+    const def = calcTowerGuardianDef(floor);
+    const atkSpeed = calcTowerGuardianAtkSpeed(floor);
 
     // Seleção de modificador por hash (determinístico mas não cíclico)
     const modIndex = towerFloorHash(floor) % TOWER_MODIFIERS.length;

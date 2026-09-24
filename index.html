@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -43,8 +43,8 @@
         </div>
         
         <div class="flex gap-2 text-xs overflow-x-auto no-scrollbar py-2 px-1">
-            <template x-for="(res, key) in [{id:'gold', icon:'fa-coins', color:'text-[#ffd700]'}, {id:'diamond', icon:'fa-gem', color:'text-cyan-400'}, {id:'wood', icon:'fa-tree', color:'text-emerald-500'}, {id:'essence', icon:'fa-bolt', color:'text-purple-500'}, {id:'scrap', icon:'fa-cogs', color:'text-gray-400'}, {id:'iron', icon:'fa-cubes-stacked', color:'text-slate-300'}]" :key="key">
-                <div class="flex flex-col items-center bg-stone-900/80 px-3 py-1 rounded border border-stone-800 min-w-[50px]">
+            <template x-for="(res, key) in [{id:'gold', icon:'fa-coins', color:'text-[#ffd700]'}, {id:'diamond', icon:'fa-gem', color:'text-cyan-400'}, {id:'ancestralDiamonds', icon:'fa-gem', color:'text-purple-400', label:'Ancestral', showIf: 'ascension'}, {id:'wood', icon:'fa-tree', color:'text-emerald-500'}, {id:'essence', icon:'fa-bolt', color:'text-purple-500'}, {id:'scrap', icon:'fa-cogs', color:'text-gray-400'}, {id:'iron', icon:'fa-cubes-stacked', color:'text-slate-300'}]" :key="key">
+                <div class="flex flex-col items-center bg-stone-900/80 px-3 py-1 rounded border border-stone-800 min-w-[50px]" x-show="!res.showIf || (res.showIf === 'ascension' && (state.ascension?.count || 0) > 0)">
                     <div :class="res.color" class="flex gap-1.5 items-center font-bold">
                         <div class="w-4 h-4 flex items-center justify-center shrink-0 relative">
                             <img :src="getResourceAssetUrl(res.id)"
@@ -55,7 +55,7 @@
                                  alt="">
                             <i class="fas text-xs" :class="res.icon"></i>
                         </div>
-                        <span x-text="Math.floor(state.resources[res.id] || 0)">0</span>
+                        <span x-text="formatInt(state.resources[res.id] || 0)">0</span>
                     </div>
                 </div>
             </template>
@@ -2586,15 +2586,15 @@
                             <div class="text-left">
                                 <div class="text-[9px] uppercase tracking-wider text-cyan-300 font-bold">Diamantes Ancestrais</div>
                                 <div class="text-xl font-black text-white leading-none">
-                                    <span x-text="Math.floor(state.resources.diamonds || 0)"></span> <span class="text-xs text-cyan-400">💎</span>
+                                    <span x-text="Math.floor(state.resources.ancestralDiamonds || 0)"></span> <span class="text-xs text-purple-400">💠</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- ESTADO 1: BLOQUEADO (Nível < 50) -->
-                <template x-if="(state.hero?.level || 1) < 50">
+                <!-- ESTADO 1: BLOQUEADO (Nível < 25) -->
+                <template x-if="(state.hero?.level || 1) < 25">
                     <div class="panel p-6 text-center space-y-4 bg-stone-900/90 border border-stone-800">
                         <div class="w-16 h-16 mx-auto bg-stone-950 rounded-full flex items-center justify-center border border-stone-700 text-stone-600 text-2xl">
                             <i class="fas fa-lock"></i>
@@ -2602,19 +2602,19 @@
                         <div>
                             <h3 class="text-lg font-bold text-stone-400 medieval-font">O Portal de Ascensão ainda dorme...</h3>
                             <p class="text-xs text-stone-500 max-w-md mx-auto mt-1">
-                                Para despertar a centelha divina dos heróis do passado, você deve atingir o <strong class="text-[#fbbf24]">Nível 50</strong>.
+                                Para despertar a centelha divina dos heróis do passado, você deve atingir o <strong class="text-[#fbbf24]">Nível 25</strong>.
                             </p>
                         </div>
 
-                        <!-- Barra de Progresso até o Nível 50 -->
+                        <!-- Barra de Progresso até o Nível 25 -->
                         <div class="max-w-xs mx-auto space-y-1">
                             <div class="flex justify-between text-xs font-bold text-stone-400">
                                 <span>Progresso da Jornada:</span>
-                                <span class="text-cyan-300"><span x-text="state.hero?.level || 1"></span> / 50</span>
+                                <span class="text-cyan-300"><span x-text="state.hero?.level || 1"></span> / 25</span>
                             </div>
                             <div class="w-full bg-stone-950 h-2.5 rounded-full overflow-hidden border border-stone-800">
                                 <div class="bg-gradient-to-r from-cyan-600 to-indigo-500 h-full transition-all duration-500"
-                                     :style="`width: ${Math.min(100, ((state.hero?.level || 1) / 50) * 100)}%`"></div>
+                                     :style="`width: ${Math.min(100, ((state.hero?.level || 1) / 25) * 100)}%`"></div>
                             </div>
                         </div>
 
@@ -2625,11 +2625,11 @@
                             <ul class="text-stone-400 space-y-1.5 text-[11px]">
                                 <li class="flex items-start gap-2">
                                     <i class="fas fa-rotate text-cyan-400 mt-0.5 shrink-0"></i>
-                                    <span>Reseta o nível, ouro e equipamentos em troca de <strong>Diamantes Ancestrais</strong>.</span>
+                                    <span>Reseta <strong>tudo</strong> (nível, equipamentos, recursos, torre, bestiário, pets, missões) em troca de <strong>Diamantes Ancestrais 💠</strong>.</span>
                                 </li>
                                 <li class="flex items-start gap-2">
                                     <i class="fas fa-shield-halved text-emerald-400 mt-0.5 shrink-0"></i>
-                                    <span><strong>Mantém intactos:</strong> Companheiros/Pets, Bestiário, Conquistas e Perks Ancestrais.</span>
+                                    <span><strong>Mantém intactos:</strong> Somente os Perks de Ascensão (bônus permanentes) e Diamantes Ancestrais.</span>
                                 </li>
                                 <li class="flex items-start gap-2">
                                     <i class="fas fa-bolt text-amber-400 mt-0.5 shrink-0"></i>
@@ -2640,8 +2640,8 @@
                     </div>
                 </template>
 
-                <!-- ESTADO 2: PRONTO PARA ASCENDER (Nível >= 50) -->
-                <template x-if="(state.hero?.level || 1) >= 50">
+                <!-- ESTADO 2: PRONTO PARA ASCENDER (Nível >= 25) -->
+                <template x-if="(state.hero?.level || 1) >= 25">
                     <div class="panel p-6 text-center space-y-4 bg-gradient-to-br from-indigo-950/70 via-purple-950/40 to-stone-900 border-2 border-cyan-400 shadow-xl animate-pulse">
                         <div class="w-16 h-16 mx-auto bg-cyan-950 rounded-full flex items-center justify-center border-2 border-cyan-300 text-cyan-200 text-3xl shadow-lg shadow-cyan-500/40">
                             <i class="fas fa-star animate-spin"></i>
@@ -2670,7 +2670,7 @@
                             </div>
                         </div>
 
-                        <button @click="if(confirm('Tem certeza de que deseja realizar a Ascensão? Seu herói renascerá no Nível 1 com os Diamantes e Bênçãos eternas!')) ascendHero()"
+                        <button @click="if(confirm('Tem certeza de que deseja realizar a Ascensão? TUDO será resetado (nível, equipamentos, torre, bestiário, pets) em troca de Diamantes Ancestrais e seus Perks permanentes!')) ascendHero()"
                                 class="px-8 py-3.5 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold text-sm rounded-xl border border-cyan-300 shadow-2xl transition-all flex items-center justify-center gap-2 mx-auto cursor-pointer">
                             <i class="fas fa-crown"></i>
                             <span>Realizar Ascensão Divina</span>
@@ -2687,7 +2687,7 @@
                         </div>
                         <h4 class="font-bold text-sm text-stone-400 medieval-font">Bênçãos Ancestrais Seladas</h4>
                         <p class="text-xs text-stone-500 max-w-md mx-auto">
-                            As Bênçãos Ancestrais permanecem adormecidas. Realize sua 1ª Ascensão Divina (disponível no Nível 50) para despertar a Árvore de Bênçãos Eternas da sua Linhagem e gastar seus Diamantes 💎.
+                            As Bênçãos Ancestrais permanecem adormecidas. Realize sua 1ª Ascensão Divina (disponível no Nível 25) para despertar a Árvore de Bênçãos Eternas da sua Linhagem e gastar seus Diamantes Ancestrais 💠.
                         </p>
                     </div>
                 </template>
@@ -2729,11 +2729,11 @@
                                     </div>
 
                                     <button @click="buyAscensionPerk(perk.id)"
-                                            :disabled="(state.resources.diamonds || 0) < (perk.cost + (state.ascension?.perks?.[perk.id] || 0))"
+                                            :disabled="(state.resources.ancestralDiamonds || 0) < (perk.cost + (state.ascension?.perks?.[perk.id] || 0))"
                                             class="w-full py-2 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700/70 disabled:opacity-40 disabled:cursor-not-allowed text-cyan-200 text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow">
                                         <i class="fas fa-arrow-up text-[10px]"></i>
                                         <span>Aprimorar</span>
-                                        <span class="text-cyan-300">(<span x-text="perk.cost + (state.ascension?.perks?.[perk.id] || 0)"></span> 💎)</span>
+                                        <span class="text-purple-300">(<span x-text="perk.cost + (state.ascension?.perks?.[perk.id] || 0)"></span> 💠)</span>
                                     </button>
                                 </div>
                             </template>

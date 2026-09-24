@@ -53,6 +53,7 @@ export const defaultState = {
     resources: {
         gold: 0,
         diamond: 0,
+        ancestralDiamonds: 0,   // Diamante Ancestral — exclusivo de Ascensão (GDD Expansão 1.4)
         wood: 0,
         essence: 0,
         scrap: 0,
@@ -147,12 +148,12 @@ export const defaultState = {
     },
     ascension: {
         count: 0,
-        diamonds: 0,
+        totalAncestralEarned: 0, // Total de Diamantes Ancestrais já ganhos (histórico)
         perks: {
-            dmg: 0,   // Linhagem dos Deuses (+5% Dano por nível)
-            gold: 0,  // Cofre Ancestral (+10% Ouro por nível)
-            xp: 0,    // Mente Iluminada (+10% XP por nível)
-            drop: 0,  // Magnetismo de Recursos (+5% Chance de drop de Ferro/Essência por nível)
+            dmg: 0,   // Linhagem dos Deuses (+10% Dano por nível)
+            gold: 0,  // Cofre Ancestral (+15% Ouro por nível)
+            xp: 0,    // Mente Iluminada (+20% XP por nível)
+            drop: 0,  // Magnetismo de Recursos (+10% Chance de drop por nível)
         },
     },
     zone: 1,

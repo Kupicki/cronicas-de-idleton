@@ -227,7 +227,7 @@ export const MARKET_ITEMS = [
 ];
 
 // ==========================================
-// ASCENSÃO & PRESTÍGIO (GDD: Seção 21)
+// ASCENSÃO & PRESTÍGIO (GDD Expansão 1.4)
 // ==========================================
 export const ASCENSION_PERKS = [
     {
@@ -235,8 +235,8 @@ export const ASCENSION_PERKS = [
         name: 'Linhagem dos Deuses',
         icon: 'fa-khanda',
         color: '#f87171',
-        cost: 1,
-        desc: '+10% de Dano permanente por nível',
+        cost: 1,                   // custo base em Diamantes Ancestrais
+        desc: '+10% de Dano permanente por nível (💠 Diamante Ancestral)',
         bonusPerLevel: 0.10,
     },
     {
@@ -245,7 +245,7 @@ export const ASCENSION_PERKS = [
         icon: 'fa-coins',
         color: '#fbbf24',
         cost: 1,
-        desc: '+15% de Ouro permanente por nível',
+        desc: '+15% de Ouro permanente por nível (💠 Diamante Ancestral)',
         bonusPerLevel: 0.15,
     },
     {
@@ -254,7 +254,7 @@ export const ASCENSION_PERKS = [
         icon: 'fa-brain',
         color: '#c084fc',
         cost: 1,
-        desc: '+20% de XP em combate permanente por nível',
+        desc: '+20% de XP em combate permanente por nível (💠 Diamante Ancestral)',
         bonusPerLevel: 0.20,
     },
     {
@@ -263,10 +263,11 @@ export const ASCENSION_PERKS = [
         icon: 'fa-magnet',
         color: '#38bdf8',
         cost: 2,
-        desc: '+10% de chance de drops raros (Ferro/Essência) por nível',
+        desc: '+10% de chance de drops raros por nível (💠 Diamante Ancestral)',
         bonusPerLevel: 0.10,
     },
 ];
+
 
 // ==========================================
 // COMPANHEIROS / PETS (GDD: Seção 18)

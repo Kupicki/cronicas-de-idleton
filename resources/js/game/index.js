@@ -62,6 +62,7 @@ import {
 }                                                                 from './quests.js';
 import { t, setLang, getLang, getAvailableLangs, LANG_META }     from './lang/index.js';
 import { v, getLibraryAssetUrl, getLibraryIcon }                  from './visuals/index.js';
+import { calcXpForLevel, formatNumber, formatInt }                from './formulas.js';
 
 // ==========================================
 // ALPINE COMPONENT — gameData()
@@ -94,6 +95,8 @@ export function gameData() {
         v,                         // Biblioteca Visual: v('chave', 'prop?')
         getLibraryAssetUrl,        // Atalho: v('chave') → '/assets/path.png'
         getLibraryIcon,            // Atalho: v('chave') → 'fa-icon'
+        formatNumber,              // Notação abreviada K/M/B/T
+        formatInt,                 // Notação inteira abreviada
         currentRumor: TAVERN_RUMORS[Math.floor(Math.random() * TAVERN_RUMORS.length)],
         // --- Estado & UI ---
         state:                JSON.parse(JSON.stringify(defaultState)),
@@ -317,15 +320,31 @@ export function gameData() {
                 s.marketPurchases = { wood: 0, scrap: 0, iron: 0, essence: 0 };
             }
             if (!s.ascension) {
-                s.ascension = { count: 0, diamonds: 0, perks: { dmg: 0, gold: 0, xp: 0, drop: 0 } };
+                s.ascension = { count: 0, totalAncestralEarned: 0, perks: { dmg: 0, gold: 0, xp: 0, drop: 0 } };
             }
             if (!s.ascension.perks) {
                 s.ascension.perks = { dmg: 0, gold: 0, xp: 0, drop: 0 };
             }
-            // Diamantes ancestrais só existem após a 1ª ascensão
-            if (!s.ascension.count || s.ascension.count === 0) {
-                s.resources.diamonds = 0;
-                s.resources.diamond = 0;
+            // GDD Expansão 1.4: Migração de saves antigos
+            // Se o save usa o sistema antigo (ascension.diamonds), migrar para ancestralDiamonds
+            if (typeof s.ascension.diamonds === 'number' && s.ascension.diamonds > 0) {
+                s.resources.ancestralDiamonds = (s.resources.ancestralDiamonds || 0) + s.ascension.diamonds;
+                s.ascension.totalAncestralEarned = (s.ascension.totalAncestralEarned || 0) + s.ascension.diamonds;
+                delete s.ascension.diamonds;
+            }
+            if (typeof s.ascension.totalAncestralEarned === 'undefined') {
+                s.ascension.totalAncestralEarned = 0;
+            }
+            if (typeof s.resources.ancestralDiamonds === 'undefined') {
+                s.resources.ancestralDiamonds = 0;
+            }
+            // Recalcula nextXp para a nova curva 1.28× (migração de saves com curva 1.5×)
+            if (s.hero.level && s.hero.nextXp) {
+                const expectedNextXp = calcXpForLevel(s.hero.level);
+                // Se o nextXp armazenado difere muito do esperado, corrige
+                if (Math.abs(s.hero.nextXp - expectedNextXp) > expectedNextXp * 0.1) {
+                    s.hero.nextXp = expectedNextXp;
+                }
             }
 
             // GDD v1.2 Normalizações
@@ -802,13 +821,20 @@ export function gameData() {
                 }
             }
 
-            // Level Up fiel ao GDD: +3 Pontos de Atributo e HP Max Base +10
+            // Level Up fiel ao GDD Expansão: +3 Pontos de Atributo, HP Max Base +10, razão 1.28×
             while (this.state.hero.xp >= this.state.hero.nextXp) {
                 this.state.hero.level++;
                 this.state.hero.xp      -= this.state.hero.nextXp;
-                this.state.hero.nextXp   = Math.floor(this.state.hero.nextXp * 1.5);
+                this.state.hero.nextXp   = calcXpForLevel(this.state.hero.level);
                 this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 3;
                 this.state.baseStats.hpMax += 10;
+
+                // GDD Expansão 1.1: Bônus de marco a cada 10 níveis (+1 ponto de atributo extra)
+                if (this.state.hero.level % 10 === 0) {
+                    this.state.hero.statPoints += 1;
+                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +1 Ponto de Atributo Bônus!`, 'prestige');
+                }
+
                 this.recalcStats();
                 this.state.hero.hp = this.state.derived.hpMax;
 
@@ -1200,7 +1226,7 @@ export function gameData() {
         },
 
         // ==========================================
-        // ASCENSÃO & PRESTÍGIO (GDD: Seção 21)
+        // ASCENSÃO & PRESTÍGIO (GDD Expansão 1.4)
         // ==========================================
 
         calcAscensionReward() {
@@ -1208,6 +1234,13 @@ export function gameData() {
         },
 
         ascendHero() {
+            // Para exploração e torre antes de ascender
+            this.state.isExploring = false;
+            if (this.state.tower?.inBattle) {
+                this.state.tower.inBattle = false;
+                this.state.tower.monster = null;
+            }
+
             const result = performAscension(this.state);
             if (!result.ok) {
                 this.showNotification(result.msg);
@@ -1229,7 +1262,7 @@ export function gameData() {
                 this.addLog(`✨ Desbloqueou/Aprimorou ${perkDef.name} (Nível ${this.state.ascension.perks[perkId]})`, 'prestige');
                 this.saveGame();
             } else {
-                this.showNotification('Diamantes insuficientes!');
+                this.showNotification('💠 Diamantes Ancestrais insuficientes!');
             }
         },
 
