@@ -73,7 +73,7 @@ export default {
 
     // Dicas de atributo
     'stat.tip.str':                 '+1 Ataque',
-    'stat.tip.def':                 '+1 Defesa',
+    'stat.tip.def':                 '+3 Defesa, +3 HP',
     'stat.tip.int':                 '+Mana Regen',
     'stat.tip.agi':                 '+Vel. Atk / Energia',
     'stat.tip.lck':                 '+Drop Rate',
@@ -83,7 +83,7 @@ export default {
     // Seção de alocação
     'stat.points.title':            'Pontos de Atributo',
     'stat.points.available':        'Disponíveis',
-    'stat.points.tip':              '+3 pontos por level up · Cada ponto aumenta +1 no atributo',
+    'stat.points.tip':              '+2 pontos por nível (+2 bônus a cada 10 níveis)',
     'stat.points.none':             'Nenhum ponto de atributo disponível.',
 
     // =====================================================

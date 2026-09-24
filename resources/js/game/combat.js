@@ -134,11 +134,6 @@ export function calcActiveSetBonuses(equipment = {}) {
 export function calcHeroDmg(derived, monster, bestiary = {}, oracleBuff = null, activePet = null, equipment = {}, ascension = null, hero = null) {
     let dmg = derived.str;
 
-    // Bônus do Lobo Alfa (+12% de Ataque Base)
-    if (activePet === 'lobo_alfa') {
-        dmg = Math.floor(dmg * 1.12);
-    }
-
     // Especialização: Berserker (+1% de dano a cada 2% de HP perdido)
     if (hero && hero.specialization === 'berserker' && derived.hpMax > 0) {
         const missingHpRatio = Math.max(0, 1 - (hero.hp / derived.hpMax));
@@ -667,7 +662,7 @@ export function resolveTowerEventChoice(state, choiceIndex) {
             const gold = state.tower.floor * 500;
             const dia = 2;
             state.resources.gold = (state.resources.gold || 0) + gold;
-            state.resources.diamonds = (state.resources.diamonds || 0) + dia;
+            state.resources.diamond = (state.resources.diamond || 0) + dia;
             state.tower.logs.push(`🎉 Baú aberto com sucesso! Você encontrou +${gold} 🪙 e +${dia} 💎!`);
         } else {
             state.hero.hp = Math.max(1, Math.floor((state.hero.hp || 1) * 0.75));
@@ -739,7 +734,7 @@ export function handleTowerMonsterKill(state) {
     t.inBattle = false;
     t.isVictory = true;
 
-    state.resources.diamonds = (state.resources.diamonds || 0) + (r.diamonds || 0);
+    state.resources.diamond = (state.resources.diamond || 0) + (r.diamonds || 0);
     state.resources.essence = (state.resources.essence || 0) + (r.essence || 0);
 
     if (t.floor >= (t.maxFloor || 1)) {

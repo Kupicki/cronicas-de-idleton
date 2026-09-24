@@ -2597,8 +2597,8 @@
                     </div>
                 </div>
 
-                <!-- ESTADO 1: BLOQUEADO (Nível < 25) -->
-                <template x-if="(state.hero?.level || 1) < 25">
+                <!-- ESTADO 1: BLOQUEADO (Nível < 50) -->
+                <template x-if="(state.hero?.level || 1) < 50">
                     <div class="panel p-6 text-center space-y-4 bg-stone-900/90 border border-stone-800">
                         <div class="w-16 h-16 mx-auto bg-stone-950 rounded-full flex items-center justify-center border border-stone-700 text-stone-600 text-2xl">
                             <i class="fas fa-lock"></i>
@@ -2606,19 +2606,19 @@
                         <div>
                             <h3 class="text-lg font-bold text-stone-400 medieval-font">O Portal de Ascensão ainda dorme...</h3>
                             <p class="text-xs text-stone-500 max-w-md mx-auto mt-1">
-                                Para despertar a centelha divina dos heróis do passado, você deve atingir o <strong class="text-[#fbbf24]">Nível 25</strong>.
+                                Para despertar a centelha divina dos heróis do passado, você deve atingir o <strong class="text-[#fbbf24]">Nível 50</strong>.
                             </p>
                         </div>
 
-                        <!-- Barra de Progresso até o Nível 25 -->
+                        <!-- Barra de Progresso até o Nível 50 -->
                         <div class="max-w-xs mx-auto space-y-1">
                             <div class="flex justify-between text-xs font-bold text-stone-400">
                                 <span>Progresso da Jornada:</span>
-                                <span class="text-cyan-300"><span x-text="state.hero?.level || 1"></span> / 25</span>
+                                <span class="text-cyan-300"><span x-text="state.hero?.level || 1"></span> / 50</span>
                             </div>
                             <div class="w-full bg-stone-950 h-2.5 rounded-full overflow-hidden border border-stone-800">
                                 <div class="bg-gradient-to-r from-cyan-600 to-indigo-500 h-full transition-all duration-500"
-                                     :style="`width: ${Math.min(100, ((state.hero?.level || 1) / 25) * 100)}%`"></div>
+                                     :style="`width: ${Math.min(100, ((state.hero?.level || 1) / 50) * 100)}%`"></div>
                             </div>
                         </div>
 
@@ -2644,8 +2644,8 @@
                     </div>
                 </template>
 
-                <!-- ESTADO 2: PRONTO PARA ASCENDER (Nível >= 25) -->
-                <template x-if="(state.hero?.level || 1) >= 25">
+                <!-- ESTADO 2: PRONTO PARA ASCENDER (Nível >= 50) -->
+                <template x-if="(state.hero?.level || 1) >= 50">
                     <div class="panel p-6 text-center space-y-4 bg-gradient-to-br from-indigo-950/70 via-purple-950/40 to-stone-900 border-2 border-cyan-400 shadow-xl animate-pulse">
                         <div class="w-16 h-16 mx-auto bg-cyan-950 rounded-full flex items-center justify-center border-2 border-cyan-300 text-cyan-200 text-3xl shadow-lg shadow-cyan-500/40">
                             <i class="fas fa-star animate-spin"></i>

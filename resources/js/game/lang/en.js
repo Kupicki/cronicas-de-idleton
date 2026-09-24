@@ -71,7 +71,7 @@ export default {
     'stat.hpMax':                   'Max HP',
 
     'stat.tip.str':                 '+1 Attack',
-    'stat.tip.def':                 '+1 Defense',
+    'stat.tip.def':                 '+3 Defense, +3 HP',
     'stat.tip.int':                 '+Mana Regen',
     'stat.tip.agi':                 '+Atk. Speed / Energy',
     'stat.tip.lck':                 '+Drop Rate',
@@ -80,7 +80,7 @@ export default {
 
     'stat.points.title':            'Attribute Points',
     'stat.points.available':        'Available',
-    'stat.points.tip':              '+3 points per level up · Each point adds +1 to the attribute',
+    'stat.points.tip':              '+2 points per level (+2 bonus every 10 levels)',
     'stat.points.none':             'No attribute points available.',
 
     // =====================================================

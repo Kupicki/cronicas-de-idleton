@@ -783,13 +783,13 @@ export function upgradeBag(state) {
     if (cost.wood && (state.resources.wood || 0) < cost.wood) return { ok: false, msg: `Madeira Nobre insuficiente (${cost.wood} 🌲)` };
     if (cost.iron && (state.resources.iron || 0) < cost.iron) return { ok: false, msg: `Minério de Ferro insuficiente (${cost.iron} 🧱)` };
     if (cost.essence && (state.resources.essence || 0) < cost.essence) return { ok: false, msg: `Essência Mágica insuficiente (${cost.essence} ⚡)` };
-    if (cost.diamonds && (state.resources.diamonds || 0) < cost.diamonds) return { ok: false, msg: `Diamantes insuficientes (${cost.diamonds} 💎)` };
+    if (cost.diamonds && (state.resources.diamond || 0) < cost.diamonds) return { ok: false, msg: `Diamantes insuficientes (${cost.diamonds} 💎)` };
 
     if (cost.gold) state.resources.gold -= cost.gold;
     if (cost.wood) state.resources.wood -= cost.wood;
     if (cost.iron) state.resources.iron -= cost.iron;
     if (cost.essence) state.resources.essence -= cost.essence;
-    if (cost.diamonds) state.resources.diamonds -= cost.diamonds;
+    if (cost.diamonds) state.resources.diamond -= cost.diamonds;
 
     state.inventoryMaxSlots = next.slots;
     return { ok: true, msg: `✨ Mochila aprimorada para ${next.name} (${next.slots} slots)!` };
@@ -919,7 +919,7 @@ export function claimPetExpedition(state, expIndex) {
             rewards.push(`+${qty} Ouro 🪙`);
         }
         if (durationDef.diamonds) {
-            state.resources.diamonds = (state.resources.diamonds || 0) + durationDef.diamonds;
+            state.resources.diamond = (state.resources.diamond || 0) + durationDef.diamonds;
             rewards.push(`+${durationDef.diamonds} Diamantes 💎`);
         }
         if (durationDef.xp) {

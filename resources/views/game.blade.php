@@ -2588,7 +2588,7 @@
                             <div class="text-left">
                                 <div class="text-[9px] uppercase tracking-wider text-cyan-300 font-bold">Diamantes Ancestrais</div>
                                 <div class="text-xl font-black text-white leading-none">
-                                    <span x-text="Math.floor(state.resources.diamonds || 0)"></span> <span class="text-xs text-cyan-400">💎</span>
+                                    <span x-text="Math.floor(state.resources.ancestralDiamonds || 0)"></span> <span class="text-xs text-purple-400">💠</span>
                                 </div>
                             </div>
                         </div>
@@ -2627,11 +2627,11 @@
                             <ul class="text-stone-400 space-y-1.5 text-[11px]">
                                 <li class="flex items-start gap-2">
                                     <i class="fas fa-rotate text-cyan-400 mt-0.5 shrink-0"></i>
-                                    <span>Reseta o nível, ouro e equipamentos em troca de <strong>Diamantes Ancestrais</strong>.</span>
+                                    <span>Reseta <strong>tudo</strong> (nível, equipamentos, recursos, torre, bestiário, pets, missões) em troca de <strong>Diamantes Ancestrais 💠</strong>.</span>
                                 </li>
                                 <li class="flex items-start gap-2">
                                     <i class="fas fa-shield-halved text-emerald-400 mt-0.5 shrink-0"></i>
-                                    <span><strong>Mantém intactos:</strong> Companheiros/Pets, Bestiário, Conquistas e Perks Ancestrais.</span>
+                                    <span><strong>Mantém intactos:</strong> Somente os Perks de Ascensão (bônus permanentes) e Diamantes Ancestrais.</span>
                                 </li>
                                 <li class="flex items-start gap-2">
                                     <i class="fas fa-bolt text-amber-400 mt-0.5 shrink-0"></i>
@@ -2731,11 +2731,11 @@
                                     </div>
 
                                     <button @click="buyAscensionPerk(perk.id)"
-                                            :disabled="(state.resources.diamonds || 0) < (perk.cost + (state.ascension?.perks?.[perk.id] || 0))"
+                                            :disabled="(state.resources.ancestralDiamonds || 0) < (perk.cost + (state.ascension?.perks?.[perk.id] || 0))"
                                             class="w-full py-2 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700/70 disabled:opacity-40 disabled:cursor-not-allowed text-cyan-200 text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow">
                                         <i class="fas fa-arrow-up text-[10px]"></i>
                                         <span>Aprimorar</span>
-                                        <span class="text-cyan-300">(<span x-text="perk.cost + (state.ascension?.perks?.[perk.id] || 0)"></span> 💎)</span>
+                                        <span class="text-purple-300">(<span x-text="perk.cost + (state.ascension?.perks?.[perk.id] || 0)"></span> 💠)</span>
                                     </button>
                                 </div>
                             </template>

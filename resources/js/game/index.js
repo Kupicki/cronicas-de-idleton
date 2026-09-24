@@ -284,10 +284,9 @@ export function gameData() {
             ensureQuests(s);
 
             if (typeof s.hero.pe === 'undefined' || s.hero.pe === null) {
-                s.hero.pe = (s.hero.skillPoints || 0) + (s.hero.statPoints || 0);
+                s.hero.pe = (s.hero.skillPoints || 0);
             }
             delete s.hero.skillPoints;
-            delete s.hero.statPoints;
 
             if (typeof s.hero.nameChanges === 'undefined') s.hero.nameChanges = 0;
 
@@ -305,6 +304,11 @@ export function gameData() {
                 s.buildings[key].baseCost = defaultState.buildings[key].baseCost;
             }
 
+            // Normalização de Diamante comum (singular)
+            if (typeof s.resources.diamonds === 'number') {
+                s.resources.diamond = (s.resources.diamond || 0) + s.resources.diamonds;
+                delete s.resources.diamonds;
+            }
             if (!s.resources.diamond && s.resources.diamond !== 0) s.resources.diamond = 0;
             if (typeof s.maxZone === 'undefined')    s.maxZone    = s.zone || 1;
             if (typeof s.totalKills === 'undefined') s.totalKills = 0;
@@ -339,7 +343,7 @@ export function gameData() {
             if (typeof s.resources.ancestralDiamonds === 'undefined') {
                 s.resources.ancestralDiamonds = 0;
             }
-            // Recalcula nextXp para a nova curva 1.28× (migração de saves com curva 1.5×)
+            // Recalcula nextXp para a nova curva 1.19× (migração de saves com curvas antigas)
             if (s.hero.level && s.hero.nextXp) {
                 const expectedNextXp = calcXpForLevel(s.hero.level);
                 // Se o nextXp armazenado difere muito do esperado, corrige
@@ -635,6 +639,7 @@ export function gameData() {
 
                 if (tm.hp <= 0) {
                     handleTowerMonsterKill(this.state);
+                    this._checkLevelUp();
                 }
                 return;
             }
@@ -1481,12 +1486,12 @@ export function gameData() {
         },
 
         resetHeroSpecialization() {
-            if ((this.state.resources.diamonds || 0) < 5) {
+            if ((this.state.resources.diamond || 0) < 5) {
                 this.showNotification('Necessário 5 Diamantes 💎 para redefinir a Especialização!');
                 return;
             }
             if (!confirm('Deseja redefinir sua Especialização de Classe por 5 Diamantes 💎?')) return;
-            this.state.resources.diamonds -= 5;
+            this.state.resources.diamond -= 5;
             this.state.hero.specialization = null;
             this.specializationModalOpen = true;
             this.recalcStats();
@@ -2279,7 +2284,13 @@ export function gameData() {
                 // Processa Combate Roguelike Dedicado da Torre dos Desafios
                 if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
                     processTowerCombatTick(this.state, dt);
+                    this._checkLevelUp();
                 }
+            }
+
+            // Garante verificação de level-up imediata se houver XP pendente de qualquer fonte
+            if (this.state.hero && this.state.hero.xp >= this.state.hero.nextXp) {
+                this._checkLevelUp();
             }
 
             // Decai flag de ataque do herói
