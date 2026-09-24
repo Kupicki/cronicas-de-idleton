@@ -24,7 +24,8 @@ export function recalcDerived(state) {
     const { baseStats, skills, equipment } = state;
 
     let str   = baseStats.str;
-    let def   = baseStats.def;
+    // Defesa: cada ponto alocado vale +3 de defesa efetiva (GDD Expansão 1.4)
+    let def   = baseStats.def * 3;
     let int   = baseStats.int;
     let agi   = baseStats.agi;
     let lck   = baseStats.lck || 1;
@@ -32,8 +33,9 @@ export function recalcDerived(state) {
     let reg   = baseStats.reg || 1;
     let ene   = baseStats.ene || 1;
 
-    // HP Máximo inicial: base 45 + (Defesa * 5)
-    let hpMax = 45 + (def * 5);
+    // HP Máximo: base 47 + 10 por nível além do 1º + (pontos em Defesa × 3 HP cada)
+    const heroLevel = state.hero?.level || 1;
+    let hpMax = 47 + ((heroLevel - 1) * 10) + (baseStats.def * 3);
 
     // Regeneração de HP: 0.5 HP/s por ponto alocado em Regeneração
     let regen = reg * 0.5;

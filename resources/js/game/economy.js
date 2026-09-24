@@ -6,7 +6,10 @@ import {
     ITEM_SETS,
 } from './constants.js';
 import { trackQuestProgress } from './quests.js';
-import { calcAscensionAncestralReward, calcXpForLevel } from './formulas.js';
+import {
+    calcAscensionAncestralReward, calcXpForLevel,
+    calcBuildingCost, calcDomainUpgradeCost,
+} from './formulas.js';
 
 // ==========================================
 // ECONOMIA — Construções, Loot, Ferreiro
@@ -17,9 +20,7 @@ import { calcAscensionAncestralReward, calcXpForLevel } from './formulas.js';
 export function getBuildingCost(buildings, id) {
     const b = buildings[id];
     if (!b) return 999999;
-    if ((b.qty || 0) >= 10) return Infinity;
-    // GDD: custo = baseCost × 1.18^nivel_atual
-    return Math.floor(b.baseCost * Math.pow(1.18, b.qty));
+    return calcBuildingCost(b.baseCost, b.qty || 0);
 }
 
 export function buyBuilding(state, id) {
@@ -36,10 +37,7 @@ export function buyBuilding(state, id) {
 }
 
 export function getDomainFortificationCost(level = 0) {
-    return {
-        wood: Math.floor(50 * Math.pow(1.35, level)),
-        gold: Math.floor(200 * Math.pow(1.30, level)),
-    };
+    return calcDomainUpgradeCost(level);
 }
 
 export function upgradeDomain(state) {
@@ -449,18 +447,27 @@ export function resetHeroStats(state) {
     state.resources.diamond -= cost;
     state.statResets = (state.statResets || 0) + 1;
 
-    // Reseta atributos base
+    // Reseta TODOS os atributos base para 1 (valor padrão do defaultState)
     state.baseStats = {
-        str: 10,
-        def: 5,
-        agi: 5,
-        int: 5,
+        hpMax: 50 + ((state.hero.level - 1) * 10), // HP base 50 + 10 por level up
+        str: 1,
+        def: 1,
+        int: 1,
+        agi: 1,
         lck: 1,
-        hpMax: 100 + ((state.hero.level - 1) * 10),
+        per: 1,
+        reg: 1,
+        ene: 1,
+        energyMax: 20,
+        energyReg: 0.5,
+        manaMax: 20,
+        manaReg: 0.5,
     };
 
-    // Devolve todos os pontos de atributo acumulados pelo level
-    state.hero.statPoints = (state.hero.level - 1) * 3;
+    // Devolve todos os pontos de atributo: 2/nível + 2 bônus a cada 10 níveis
+    const lvl = state.hero.level;
+    const milestoneBonus = Math.floor(lvl / 10) * 2;
+    state.hero.statPoints = ((lvl - 1) * 2) + milestoneBonus;
 
     return {
         ok: true,
@@ -608,14 +615,14 @@ export function calcMonsterMaterialDrops(state, monster) {
 
 export function calcAscensionReward(state) {
     const lvl = state.hero?.level || 1;
-    if (lvl < 25) return 0;
-    // GDD: floor((nível - 20) × 1 + zonaMáxima × 0.5)
+    if (lvl < 50) return 0;
+    // GDD 1.5: floor((nível - 45) × 2 + zonaMáxima × 1)
     return calcAscensionAncestralReward(lvl, state.maxZone || 1);
 }
 
 export function performAscension(state) {
     const rewardAncestral = calcAscensionReward(state);
-    if (rewardAncestral <= 0) return { ok: false, msg: 'Requer Nível 25 ou superior para Ascender!' };
+    if (rewardAncestral <= 0) return { ok: false, msg: 'Requer Nível 50 ou superior para Ascender!' };
 
     // Incrementa contagem de ascensão e Diamantes Ancestrais
     if (!state.ascension) {

@@ -9,6 +9,7 @@ import {
 import {
     calcMonsterHp, calcMonsterDmg, calcBossHp, calcBossDmg,
     calcMonsterGold, calcBossGold, calcMonsterXp, calcBossXp,
+    calcTowerRatio, calcTowerMonsterHp, calcTowerMonsterDmg,
     calcTowerGuardianHp, calcTowerGuardianDmg,
     calcTowerGuardianDef, calcTowerGuardianAtkSpeed,
 } from './formulas.js';
@@ -403,7 +404,14 @@ const TOWER_BOSS_NAMES = [
     'Dragão do Apocalipse', 'Monarca Espectral', 'Lorde Demoníaco', 'Deus Caído',
 ];
 
+const TOWER_MINION_NAMES = [
+    'Espectro das Sombras', 'Sentinela de Cristal', 'Gárgula de Obsidiana',
+    'Autômato Arcano', 'Guerreiro Abissal', 'Lacaio do Caos',
+    'Cultista Cósmico', 'Elemental de Éter', 'Horror das Profundezas',
+];
+
 const TOWER_ICONS = ['👑', '🐉', '👹', '👿', '💀', '🪐', '⚡', '🗿'];
+const TOWER_MINION_ICONS = ['👾', '🦇', '🕷️', '🐺', '🧟', '💀', '🛡️', '🗡️'];
 
 /**
  * Hash simples e determinístico baseado no andar para selecionar modificador.
@@ -417,6 +425,14 @@ function towerFloorHash(floor) {
 }
 
 /**
+ * Retorna o modificador cósmico para o andar.
+ */
+export function getTowerFloorModifier(floor) {
+    const modIndex = towerFloorHash(floor) % TOWER_MODIFIERS.length;
+    return TOWER_MODIFIERS[modIndex];
+}
+
+/**
  * Retorna a intensidade de um modificador escalada pelo andar.
  */
 export function getTowerModifierIntensity(modifier, floor) {
@@ -427,21 +443,56 @@ export function getTowerModifierIntensity(modifier, floor) {
     return Math.min(cap, base + (floor * scale));
 }
 
-export function generateTowerGuardian(floor) {
-    const nameIndex = (floor - 1) % TOWER_BOSS_NAMES.length;
-    const name = `${TOWER_BOSS_NAMES[nameIndex]} (Andar ${floor})`;
-    const icon = TOWER_ICONS[(floor - 1) % TOWER_ICONS.length];
+/**
+ * Gera um monstro da Torre de acordo com o andar e índice (1 a 5).
+ * GDD Expansão 1.2: Cada andar possui 5 monstros, sendo o 5º o "Boss" do andar.
+ */
+export function generateTowerMonster(floor, monsterIndex = 1) {
+    const modifier = getTowerFloorModifier(floor);
+    const isBoss = monsterIndex >= 5;
 
-    // GDD Expansão 1.2: Base exponencial da Exploração × ratio do andar
-    // ratio(andar) = min(4.0, 2.5 + andar × 0.03)
+    if (!isBoss) {
+        // Monstros Comuns da Torre (1 a 4)
+        const nameIdx = Math.abs((floor * 3) + monsterIndex) % TOWER_MINION_NAMES.length;
+        const name = `${TOWER_MINION_NAMES[nameIdx]} (Andar ${floor} · ${monsterIndex}/5)`;
+        const icon = TOWER_MINION_ICONS[(floor + monsterIndex) % TOWER_MINION_ICONS.length];
+        const hp = calcTowerMonsterHp(floor);
+        const damage = calcTowerMonsterDmg(floor);
+        const def = Math.floor(2 + (floor * 1.5));
+        const atkSpeed = 1.6;
+
+        return {
+            name,
+            icon,
+            floor,
+            monsterIndex,
+            isBoss: false,
+            hp,
+            maxHp: hp,
+            damage,
+            baseDamage: damage,
+            def,
+            atkSpeed,
+            atkTimer: 0,
+            isHit: false,
+            hitTimer: 0,
+            modifier,
+            rewards: {
+                gold: Math.floor(60 * floor * 1.2),
+                xp: Math.floor(40 * floor * 1.2),
+            },
+            combatTime: 0,
+        };
+    }
+
+    // 5º Monstro: Chefe / Guardião do Andar
+    const nameIndex = (floor - 1) % TOWER_BOSS_NAMES.length;
+    const name = `${TOWER_BOSS_NAMES[nameIndex]} (Chefe · Andar ${floor})`;
+    const icon = TOWER_ICONS[(floor - 1) % TOWER_ICONS.length];
     const hp = calcTowerGuardianHp(floor);
     const damage = calcTowerGuardianDmg(floor);
     const def = calcTowerGuardianDef(floor);
     const atkSpeed = calcTowerGuardianAtkSpeed(floor);
-
-    // Seleção de modificador por hash (determinístico mas não cíclico)
-    const modIndex = towerFloorHash(floor) % TOWER_MODIFIERS.length;
-    const modifier = TOWER_MODIFIERS[modIndex];
 
     const rewards = {
         gold: Math.floor(350 * floor * 1.25),
@@ -454,6 +505,8 @@ export function generateTowerGuardian(floor) {
         name,
         icon,
         floor,
+        monsterIndex: 5,
+        isBoss: true,
         hp,
         maxHp: hp,
         damage,
@@ -467,6 +520,10 @@ export function generateTowerGuardian(floor) {
         rewards,
         combatTime: 0,
     };
+}
+
+export function generateTowerGuardian(floor) {
+    return generateTowerMonster(floor, 5);
 }
 
 export function generateTowerEventRoom(floor) {
@@ -575,6 +632,7 @@ export function startTowerRun(state, floor = 1) {
     state.tower.heroAtkTimer = 0;
     state.tower.heroDmgMult = 1.0;
     state.tower.logs = [];
+    state.tower.monsterIndex = 1;
 
     // Andares especiais com salas de evento a cada 3 andares (exceto no andar 1)
     if (currentFloor > 1 && currentFloor % 3 === 2) {
@@ -585,9 +643,10 @@ export function startTowerRun(state, floor = 1) {
     } else {
         state.tower.roomType = 'monster';
         state.tower.eventRoom = null;
-        state.tower.monster = generateTowerGuardian(currentFloor);
+        state.tower.monster = generateTowerMonster(currentFloor, 1);
         state.tower.modifier = state.tower.monster.modifier;
-        state.tower.logs.push(`⚔️ Guardião do Andar ${currentFloor} surge diante de você! Modificador: ${state.tower.modifier?.name || 'Nenhum'}`);
+        state.tower.logs.push(`🗼 Entrou no Andar ${currentFloor} da Torre! Modificador: ${state.tower.modifier?.name || 'Nenhum'}`);
+        state.tower.logs.push(`⚔️ Monstro 1/5 (${state.tower.monster.name}) bloqueia sua passagem!`);
     }
     return true;
 }
@@ -634,12 +693,64 @@ export function resolveTowerEventChoice(state, choiceIndex) {
         state.tower.logs.push('Você ignorou o altar e marchou para a sala do Guardião.');
     }
 
-    // Transiciona para a batalha com o guardião
+    // Transiciona para a batalha com o monstro 1 do andar
     state.tower.roomType = 'monster';
     state.tower.eventRoom = null;
-    state.tower.monster = generateTowerGuardian(state.tower.floor);
+    state.tower.monsterIndex = 1;
+    state.tower.monster = generateTowerMonster(state.tower.floor, 1);
     state.tower.modifier = state.tower.monster.modifier;
-    state.tower.logs.push(`⚔️ O Guardião do Andar ${state.tower.floor} bloqueia a saída!`);
+    state.tower.logs.push(`⚔️ Monstro 1/5 (${state.tower.monster.name}) bloqueia a saída!`);
+}
+
+/**
+ * Processa a derrota de um monstro na Torre dos Desafios.
+ * GDD Expansão 1.2: Cada andar possui 5 monstros, sendo o 5º o "Boss" do andar.
+ * Derrotar monstros 1 a 4 avança para o próximo. Derrotar o 5º conquista o andar.
+ */
+export function handleTowerMonsterKill(state) {
+    const t = state.tower;
+    if (!t || !t.monster) return { finished: false };
+
+    const m = t.monster;
+    m.hp = 0;
+
+    const r = m.rewards || {};
+    state.resources.gold = (state.resources.gold || 0) + (r.gold || 0);
+    if (r.xp) {
+        state.hero.xp = (state.hero.xp || 0) + r.xp;
+    }
+
+    // Se for monstro comum (1 a 4), avança para o próximo monstro da torre
+    if (!m.isBoss && (t.monsterIndex || 1) < 5) {
+        t.logs.unshift(`💀 ${m.name} derrotado! (+${r.gold || 0} 🪙, +${r.xp || 0} XP)`);
+        t.monsterIndex = (t.monsterIndex || 1) + 1;
+        t.monster = generateTowerMonster(t.floor, t.monsterIndex);
+        t.monster.modifier = t.modifier;
+
+        if (t.monsterIndex === 5) {
+            t.logs.unshift(`👑 ALERTA: O Guardião do Andar ${t.floor} (${t.monster.name}) despertou!`);
+        } else {
+            t.logs.unshift(`⚔️ Monstro ${t.monsterIndex}/5 (${t.monster.name}) avança para o combate!`);
+        }
+        return { finished: false, advanced: true, monster: t.monster };
+    }
+
+    // Se for o 5º monstro (Chefe), VITÓRIA COMPLETA DO ANDAR!
+    t.inBattle = false;
+    t.isVictory = true;
+
+    state.resources.diamonds = (state.resources.diamonds || 0) + (r.diamonds || 0);
+    state.resources.essence = (state.resources.essence || 0) + (r.essence || 0);
+
+    if (t.floor >= (t.maxFloor || 1)) {
+        t.maxFloor = Math.min(100, t.floor + 1);
+    }
+    if (!state.lifetimeStats) state.lifetimeStats = {};
+    state.lifetimeStats.highestTowerFloor = Math.max(state.lifetimeStats.highestTowerFloor || 1, t.floor);
+    state.lifetimeStats.bosses = (state.lifetimeStats.bosses || 0) + 1;
+
+    t.logs.unshift(`🏆 VITÓRIA! Você conquistou o Andar ${t.floor}! Recompensas: +${r.gold || 0} 🪙, +${r.diamonds || 0} 💎, +${r.essence || 0} ⚡!`);
+    return { finished: true, victory: true };
 }
 
 export function processTowerCombatTick(state, dt) {
@@ -684,9 +795,6 @@ export function processTowerCombatTick(state, dt) {
         const witherDmg = Math.max(1, Math.floor((derived.hpMax || 100) * modIntensity * dt));
         hero.hp = Math.max(1, (hero.hp || 0) - witherDmg);
     }
-
-    // Modificador: Maldição da Praga (herói não regenera — handled in game loop by checking modifier)
-    // (Já é tratado no game loop: regen zerada)
 
     // ==== VELOCIDADES ====
 
@@ -779,25 +887,9 @@ export function processTowerCombatTick(state, dt) {
             m.hp -= petDmg;
         }
 
-        // VITÓRIA DO ANDAR
+        // Derrota do monstro (comum avança wave, chefe ganha andar)
         if (m.hp <= 0) {
-            m.hp = 0;
-            t.inBattle = false;
-            t.isVictory = true;
-
-            const r = m.rewards;
-            state.resources.gold = (state.resources.gold || 0) + r.gold;
-            state.resources.diamonds = (state.resources.diamonds || 0) + r.diamonds;
-            state.resources.essence = (state.resources.essence || 0) + r.essence;
-
-            if (t.floor >= (t.maxFloor || 1)) {
-                t.maxFloor = Math.min(100, t.floor + 1);
-            }
-            if (!state.lifetimeStats) state.lifetimeStats = {};
-            state.lifetimeStats.highestTowerFloor = Math.max(state.lifetimeStats.highestTowerFloor || 1, t.floor);
-            state.lifetimeStats.bosses = (state.lifetimeStats.bosses || 0) + 1;
-
-            t.logs.unshift(`🏆 VITÓRIA! Você conquistou o Andar ${t.floor}! Recompensas: +${r.gold} 🪙, +${r.diamonds} 💎, +${r.essence} ⚡!`);
+            handleTowerMonsterKill(state);
             return;
         }
     }
@@ -825,9 +917,7 @@ export function processTowerCombatTick(state, dt) {
                 m.hp -= rDmg;
                 t.logs.unshift(`🛡️ Postura do Paladino: refletiu ${rDmg} de dano no guardião!`);
                 if (m.hp <= 0) {
-                    m.hp = 0;
-                    t.inBattle = false;
-                    t.isVictory = true;
+                    handleTowerMonsterKill(state);
                     return;
                 }
             }
@@ -871,6 +961,78 @@ export function processTowerCombatTick(state, dt) {
     if (t.logs.length > 25) {
         t.logs.length = 25;
     }
+}
+
+// ==========================================
+// INVASÃO DA VILA — COMBATE DEDICADO (GDD Expansão 1.3)
+// ==========================================
+
+/**
+ * Processa um tick de combate no slot dedicado da Invasão da Vila.
+ * Não interfere nem sobrescreve o monstro ou progresso de kills da Exploração.
+ */
+export function processSiegeCombatTick(state, dt) {
+    if (!state.villageSiege?.active || !state.villageSiege?.inBattle || !state.villageSiege?.monster) {
+        return null;
+    }
+
+    const siege = state.villageSiege;
+    const m = siege.monster;
+    const hero = state.hero;
+    const derived = state.derived || {};
+
+    if (hero.isDead || (hero.hp || 0) <= 0) {
+        hero.hp = 0;
+        hero.isDead = true;
+        siege.inBattle = false;
+        return { defeat: true };
+    }
+
+    // ATAQUE DO HERÓI
+    m.heroAtkTimer = (m.heroAtkTimer || 0) + dt;
+    const heroAtkSpeed = derived.atkSpeed || 1.5;
+
+    if (m.heroAtkTimer >= heroAtkSpeed && m.hp > 0 && (hero.hp || 0) > 0) {
+        m.heroAtkTimer = 0;
+        const attack = calcHeroDmg(derived, m, state.bestiary || {}, state.oracleBuff, state.pets?.active, state.equipment || {}, state.ascension, hero);
+        m.hp -= attack.dmg;
+        m.isHit = true;
+        m.hitTimer = 0.2;
+
+        if (m.hp <= 0) {
+            m.hp = 0;
+            return { victory: true };
+        }
+    }
+
+    // ATAQUE DO GENERAL INVASOR
+    m.atkTimer = (m.atkTimer || 0) + dt;
+    const monsterAtkSpeed = m.atkSpeed || 1.8;
+
+    if (m.atkTimer >= monsterAtkSpeed && m.hp > 0 && (hero.hp || 0) > 0) {
+        m.atkTimer = 0;
+        const effectiveDef = derived.def || 5;
+        const dmgToHero = Math.max(1, Math.floor(m.damage - (effectiveDef * 0.5)));
+        hero.hp = Math.max(0, hero.hp - dmgToHero);
+
+        if (hero.hp <= 0) {
+            hero.hp = 0;
+            hero.isDead = true;
+            siege.inBattle = false;
+            return { defeat: true };
+        }
+    }
+
+    // Decai hitTimer do monstro
+    if (m.hitTimer > 0) {
+        m.hitTimer -= dt;
+        if (m.hitTimer <= 0) {
+            m.isHit = false;
+            m.hitTimer = 0;
+        }
+    }
+
+    return null;
 }
 
 

@@ -26,6 +26,7 @@ import { defaultState }                                           from './state.
 import {
     createMonster, processCombatTick, calcHeroDmg, calcKillRewards,
     calcActiveSetBonuses, startTowerRun, resolveTowerEventChoice, processTowerCombatTick,
+    handleTowerMonsterKill, processSiegeCombatTick,
     getTowerModifierIntensity,
 } from './combat.js';
 import {
@@ -168,7 +169,7 @@ export function gameData() {
         // --- Config de stats visível no template ---
         statConfig: [
             { key: 'str', name: 'Força',        icon: 'fa-dumbbell',       color: 'text-red-400',    tip: '+1 Dano Base' },
-            { key: 'def', name: 'Defesa',       icon: 'fa-shield',         color: 'text-blue-400',   tip: '+1 Defesa & +5 HP' },
+            { key: 'def', name: 'Defesa',       icon: 'fa-shield',         color: 'text-blue-400',   tip: '+3 Defesa & +3 HP' },
             { key: 'ene', name: 'Energia',      icon: 'fa-bolt',           color: 'text-amber-400',  tip: '+5 Máx & +0.5 Rec/s' },
             { key: 'int', name: 'Inteligência',  icon: 'fa-brain',          color: 'text-purple-400', tip: '+5 Mana & +0.1 Rec/s' },
             { key: 'agi', name: 'Agilidade',     icon: 'fa-person-running', color: 'text-yellow-400', tip: '+Velocidade Ataque' },
@@ -536,6 +537,44 @@ export function gameData() {
             if (this.state.hero.hp > d.hpMax) this.state.hero.hp = d.hpMax;
         },
 
+        /**
+         * Verifica e processa level ups pendentes.
+         * Reutilizável: chamado ao matar monstro, coletar missão, ou qualquer fonte de XP.
+         */
+        _checkLevelUp() {
+            while (this.state.hero.xp >= this.state.hero.nextXp) {
+                this.state.hero.level++;
+                this.state.hero.xp      -= this.state.hero.nextXp;
+                this.state.hero.nextXp   = calcXpForLevel(this.state.hero.level);
+                this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 2;
+                this.state.baseStats.hpMax += 10;
+
+                // Bônus de marco a cada 10 níveis (+2 pontos de atributo bônus)
+                if (this.state.hero.level % 10 === 0) {
+                    this.state.hero.statPoints += 2;
+                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +2 Pontos de Atributo Bônus!`, 'prestige');
+                }
+
+                this.recalcStats();
+                this.state.hero.hp = this.state.derived.hpMax;
+
+                const f = makeSpecialFloat(this.canvas, 'LEVEL UP!', '#fbbf24');
+                if (f) this.pushCombatFloat(f, 0);
+
+                if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+
+                this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+2 Pontos de Atributo) ✨`, 'level');
+                this.showNotification(`LEVEL UP! Você alcançou o Nível ${this.state.hero.level}!`);
+
+                // Nível 30: Desbloqueio da Especialização
+                if (this.state.hero.level === 30 && !this.state.hero.specialization) {
+                    this.specializationModalOpen = true;
+                    this.addLog('🔮 Você alcançou o Nível 30! Escolha sua Especialização de Maestria.', 'prestige');
+                    this.showNotification('Especialização de Classe Desbloqueada!');
+                }
+            }
+        },
+
         // ==========================================
         // HABILIDADES
         // ==========================================
@@ -579,7 +618,7 @@ export function gameData() {
             }
             if (this.activeCooldownTimer > 0) return;
 
-            // Se estiver na Torre em combate com Guardião:
+            // Se estiver na Torre em combate com monstros:
             if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
                 const tm = this.state.tower.monster;
                 this.state.hero.energy -= 30;
@@ -595,23 +634,33 @@ export function gameData() {
                 this.addLog(`⚡ Ataque Concentrado na Torre: -${dmg} HP no ${tm.name}!`, 'level');
 
                 if (tm.hp <= 0) {
-                    tm.hp = 0;
-                    this.state.tower.inBattle = false;
-                    this.state.tower.isVictory = true;
+                    handleTowerMonsterKill(this.state);
+                }
+                return;
+            }
 
-                    const r = tm.rewards;
-                    this.state.resources.gold = (this.state.resources.gold || 0) + r.gold;
-                    this.state.resources.diamonds = (this.state.resources.diamonds || 0) + r.diamonds;
-                    this.state.resources.essence = (this.state.resources.essence || 0) + r.essence;
+            // Se estiver na Batalha Dedicada de Cerco da Vila:
+            if (this.state.villageSiege?.active && this.state.villageSiege?.inBattle && this.state.villageSiege.monster) {
+                const sm = this.state.villageSiege.monster;
+                this.state.hero.energy -= 30;
+                this.activeCooldownTimer = 8;
 
-                    if (this.state.tower.floor >= (this.state.tower.maxFloor || 1)) {
-                        this.state.tower.maxFloor = Math.min(100, this.state.tower.floor + 1);
-                    }
-                    if (!this.state.lifetimeStats) this.state.lifetimeStats = {};
-                    this.state.lifetimeStats.highestTowerFloor = Math.max(this.state.lifetimeStats.highestTowerFloor || 1, this.state.tower.floor);
-                    this.state.lifetimeStats.bosses = (this.state.lifetimeStats.bosses || 0) + 1;
+                const dmg = Math.floor(this.state.derived.str * 3 * (0.9 + Math.random() * 0.2));
+                sm.hp -= dmg;
+                sm.isHit = true;
+                sm.hitTimer = 0.5;
 
-                    this.state.tower.logs.unshift(`🏆 VITÓRIA! Você conquistou o Andar ${this.state.tower.floor}! Recompensas: +${r.gold} 🪙, +${r.diamonds} 💎, +${r.essence} ⚡!`);
+                this.addLog(`⚡ Ataque Concentrado no General Invasor: -${dmg} HP!`, 'level');
+
+                if (sm.hp <= 0) {
+                    sm.hp = 0;
+                    const vicRes = resolveSiegeVictory(this.state);
+                    this.state.villageSiege.inBattle = false;
+                    this.state.villageSiege.active = false;
+                    this.siegeModalOpen = false;
+                    this.addLog(vicRes.msg, 'prestige');
+                    this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
+                    if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
                 }
                 return;
             }
@@ -821,38 +870,8 @@ export function gameData() {
                 }
             }
 
-            // Level Up fiel ao GDD Expansão: +3 Pontos de Atributo, HP Max Base +10, razão 1.28×
-            while (this.state.hero.xp >= this.state.hero.nextXp) {
-                this.state.hero.level++;
-                this.state.hero.xp      -= this.state.hero.nextXp;
-                this.state.hero.nextXp   = calcXpForLevel(this.state.hero.level);
-                this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 3;
-                this.state.baseStats.hpMax += 10;
-
-                // GDD Expansão 1.1: Bônus de marco a cada 10 níveis (+1 ponto de atributo extra)
-                if (this.state.hero.level % 10 === 0) {
-                    this.state.hero.statPoints += 1;
-                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +1 Ponto de Atributo Bônus!`, 'prestige');
-                }
-
-                this.recalcStats();
-                this.state.hero.hp = this.state.derived.hpMax;
-
-                const f = makeSpecialFloat(this.canvas, 'LEVEL UP!', '#fbbf24');
-                if (f) this.pushCombatFloat(f, rewardDelay);
-
-                if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
-
-                this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+3 Pontos de Atributo) ✨`, 'level');
-                this.showNotification(`LEVEL UP! Você alcançou o Nível ${this.state.hero.level}!`);
-
-                // Nível 30: Desbloqueio da Especialização
-                if (this.state.hero.level === 30 && !this.state.hero.specialization) {
-                    this.specializationModalOpen = true;
-                    this.addLog('🔮 Você alcançou o Nível 30! Escolha sua Especialização de Maestria.', 'prestige');
-                    this.showNotification('Especialização de Classe Desbloqueada!');
-                }
-            }
+            // Level Up — delega para método reutilizável
+            this._checkLevelUp();
 
             // Avanço de zona (boss)
             if (m.isBoss) {
@@ -876,6 +895,7 @@ export function gameData() {
             if (result.ok) {
                 this.addLog(result.msg, 'level');
                 this.showNotification(result.msg);
+                this._checkLevelUp(); // Verifica level up pelo XP da missão
                 this.recalcStats();
                 this.saveGame();
             } else {
@@ -1499,6 +1519,8 @@ export function gameData() {
             if (res.ok) {
                 this.addLog(res.msg, 'loot');
                 this.showNotification(res.msg);
+                this._checkLevelUp(); // Verifica level up caso ganhe XP na expedição
+                this.recalcStats();
                 if (this.state.audioEnabled) playItemDrop(this.state.audioVolume);
                 this.saveGame();
             } else {
@@ -1593,7 +1615,8 @@ export function gameData() {
                     damage: dmg,
                     atkSpeed: 1.8,
                     atkTimer: 0,
-                    isBoss: true,
+                    isBoss: false,    // NÃO conta como boss de exploração
+                    isSiege: true,    // Flag exclusiva de cerco
                     isHit: false,
                     hitTimer: 0,
                     gold: 500,
@@ -1607,11 +1630,19 @@ export function gameData() {
 
         defendVillage() {
             if (!this.state.villageSiege?.active) return;
-            this.state.monster = this.state.villageSiege.monster;
-            this.state.isExploring = true;
+            // Pausa a exploração sem tocar nem resetar o monstro da exploração (GDD Expansão 1.3)
+            this.state.isExploring = false;
+            this.state.villageSiege.inBattle = true;
+            this.siegeModalOpen = true;
+            this.addLog('⚔️ Herói engajou em combate direto contra o General Invasor na muralha!', 'danger');
+        },
+
+        retreatFromSiege() {
+            if (this.state.villageSiege) {
+                this.state.villageSiege.inBattle = false;
+            }
             this.siegeModalOpen = false;
-            this.switchTab('explore');
-            this.addLog('⚔️ Herói engajou em combate direto contra o General Invasor!', 'danger');
+            this.addLog('Você recuou para dentro dos muros da vila para se recompor.', 'narrative');
         },
 
         getSiegeRemainingFormatted() {
@@ -1926,8 +1957,8 @@ export function gameData() {
                     const mReg = this.state.derived?.manaRegen || 2;
                     this.state.hero.mana = Math.min(mMax, (this.state.hero.mana || 0) + mReg * dt);
                 } else {
-                    // Respawn regen (5x mais rápida)
-                    this.state.hero.hp += ((this.state.derived?.regen || 0.5) * 5) * dt;
+                    // Respawn regen (mesma velocidade dos atributos do herói)
+                    this.state.hero.hp += (this.state.derived?.regen || 0.5) * dt;
                     if (this.state.hero.hp >= (this.state.derived?.hpMax || 100)) {
                         this.state.hero.hp = this.state.derived?.hpMax || 100;
                         this.state.hero.isDead = false;
@@ -1969,8 +2000,8 @@ export function gameData() {
                     (this.state.hero.mana || 0) + (this.state.derived?.manaRegen || 2) * sec
                 );
             } else {
-                // Respawn regen
-                const regenRate = ((this.state.derived?.regen || 0.5) * 5);
+                // Respawn regen (velocidade normal baseada nos atributos)
+                const regenRate = (this.state.derived?.regen || 0.5);
                 this.state.hero.hp = (this.state.hero.hp || 0) + regenRate * sec;
                 if (this.state.hero.hp >= (this.state.derived?.hpMax || 100)) {
                     this.state.hero.hp = this.state.derived?.hpMax || 100;
@@ -2058,9 +2089,9 @@ export function gameData() {
                 this.healCooldownTimer = Math.max(0, this.healCooldownTimer - dt);
             }
 
-            // Recuperação / respawn
+            // Recuperação / respawn (regen normal baseada nos atributos)
             if (this.state.hero.isDead) {
-                this.state.hero.hp += (this.state.derived.regen * 5) * dt;
+                this.state.hero.hp += this.state.derived.regen * dt;
                 this.respawnPercent = Math.min(100, Math.floor((this.state.hero.hp / this.state.derived.hpMax) * 100));
                 // Respawn ao atingir HP cheio (100%)
                 if (this.state.hero.hp >= this.state.derived.hpMax) {
@@ -2212,14 +2243,6 @@ export function gameData() {
                     }
 
                     if (result.killed) {
-                        // Vitória de Cerco da Vila
-                        if (this.state.villageSiege?.active && this.state.monster === this.state.villageSiege.monster) {
-                            const vicRes = resolveSiegeVictory(this.state);
-                            this.addLog(vicRes.msg, 'prestige');
-                            this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
-                            if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
-                        }
-
                         this._killMonster();
                     }
 
@@ -2229,6 +2252,27 @@ export function gameData() {
                         this.defeatModalOpen    = true;
                         if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
                         this.addLog('Você foi derrotado em combate! Retorne à cidade para descansar.', 'danger');
+                    }
+                }
+
+                // Processa Combate Dedicado da Invasão da Vila (GDD Expansão 1.3)
+                if (this.state.villageSiege?.active && this.state.villageSiege?.inBattle && this.state.villageSiege?.monster) {
+                    const siegeRes = processSiegeCombatTick(this.state, dt);
+                    if (siegeRes?.victory) {
+                        const vicRes = resolveSiegeVictory(this.state);
+                        this.state.villageSiege.inBattle = false;
+                        this.state.villageSiege.active = false;
+                        this.siegeModalOpen = false;
+                        this.addLog(vicRes.msg, 'prestige');
+                        this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
+                        if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+                    } else if (siegeRes?.defeat) {
+                        this.state.hero.isDead = true;
+                        this.state.villageSiege.inBattle = false;
+                        this.siegeModalOpen = false;
+                        this.defeatModalOpen = true;
+                        if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
+                        this.addLog('Você foi derrotado pelo General Invasor! A vila precisa de reforços.', 'danger');
                     }
                 }
 
