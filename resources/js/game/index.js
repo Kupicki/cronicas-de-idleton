@@ -570,10 +570,10 @@ export function gameData() {
                 this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+2 Pontos de Atributo) ✨`, 'level');
                 this.showNotification(`LEVEL UP! Você alcançou o Nível ${this.state.hero.level}!`);
 
-                // Nível 30: Desbloqueio da Especialização
-                if (this.state.hero.level === 30 && !this.state.hero.specialization) {
+                // Nível 10: Desbloqueio da Especialização de Classe
+                if (this.state.hero.level === 10 && !this.state.hero.specialization) {
                     this.specializationModalOpen = true;
-                    this.addLog('🔮 Você alcançou o Nível 30! Escolha sua Especialização de Maestria.', 'prestige');
+                    this.addLog('🔮 Você alcançou o Nível 10! Escolha sua Especialização de Classe.', 'prestige');
                     this.showNotification('Especialização de Classe Desbloqueada!');
                 }
             }
@@ -1485,19 +1485,8 @@ export function gameData() {
             this.saveGame();
         },
 
-        resetHeroSpecialization() {
-            if ((this.state.resources.diamond || 0) < 5) {
-                this.showNotification('Necessário 5 Diamantes 💎 para redefinir a Especialização!');
-                return;
-            }
-            if (!confirm('Deseja redefinir sua Especialização de Classe por 5 Diamantes 💎?')) return;
-            this.state.resources.diamond -= 5;
-            this.state.hero.specialization = null;
-            this.specializationModalOpen = true;
-            this.recalcStats();
-            this.showNotification('Especialização redefinida! Escolha seu novo caminho.');
-            this.saveGame();
-        },
+        // resetHeroSpecialization() removido na Fase 2 do GDD:
+        // Especialização é permanente durante a vida — troca só na próxima Ascensão.
 
         // ==========================================
         // EXPEDIÇÕES DE MASCOTES (GDD v1.2: Pilar 2)

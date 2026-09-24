@@ -1147,8 +1147,8 @@
                         </div>
                     </div>
 
-                    <!-- BANNER DE ESPECIALIZAÇÃO DE CLASSE (Nível 30+) -->
-                    <template x-if="(state.hero.level || 1) >= 30 && !state.hero.specialization">
+                    <!-- BANNER DE ESPECIALIZAÇÃO DE CLASSE (Nível 10+) -->
+                    <template x-if="(state.hero.level || 1) >= 10 && !state.hero.specialization">
                         <div class="bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-950 border border-purple-600/60 p-3 rounded-lg flex items-center justify-between shadow-lg animate-pulse">
                             <div class="flex items-center gap-2.5">
                                 <i class="fas fa-wand-magic-sparkles text-purple-400 text-xl"></i>
@@ -1171,9 +1171,7 @@
                                 <span class="text-stone-300 font-bold" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name"></span>
                                 <span class="text-stone-500 text-[10px]" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.desc"></span>
                             </div>
-                            <button @click="resetHeroSpecialization()" class="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold hover:underline cursor-pointer shrink-0 ml-2">
-                                Redefinir (5 💎)
-                            </button>
+                            <span class="text-xs text-stone-500 italic" title="A Especialização só pode ser alterada na próxima Ascensão.">🔒 Permanente até Ascender</span>
                         </div>
                     </template>
                 </div>
@@ -3017,8 +3015,8 @@
                         <div class="flex items-center gap-2.5">
                             <i class="fas fa-wand-magic-sparkles text-purple-400 text-2xl"></i>
                             <div>
-                                <h3 class="text-lg font-bold text-white medieval-font">Especialização de Maestria (Nível 30+)</h3>
-                                <p class="text-xs text-stone-400">Escolha o seu caminho definitivo para desbloquear mecânicas e passivas de combate únicas.</p>
+                                <h3 class="text-lg font-bold text-white medieval-font">Especialização de Classe (Nível 10+)</h3>
+                                <p class="text-xs text-stone-400">Escolha seu caminho definitivo. Esta escolha é permanente até a próxima Ascensão.</p>
                             </div>
                         </div>
                         <template x-if="state.hero.specialization">
