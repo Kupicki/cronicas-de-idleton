@@ -662,6 +662,216 @@ export const AUTO_LOOT_ACTIONS = [
     { id: 'dismantle', label: 'Sucata', icon: 'fa-cogs' },
 ];
 
+// ==========================================
+// ÁRVORE DE HABILIDADES (GDD Fase 2.2)
+// ==========================================
+// Estrutura de cada nó:
+//   id, name, branch ('active'|'passive'|'utility'), icon, color,
+//   maxLevel, costPerLevel, requires (id ou null), row, col,
+//   descFn(lvl) → string, effect (chave usada em recalcDerived/combat)
+export const SKILL_TREE = {
+    berserker: {
+        color: '#ef4444',
+        nodes: [
+            // ── ATIVAS ──────────────────────────────────────────
+            {
+                id: 'brs_a1', name: 'Brutalidade', branch: 'active',
+                icon: 'fa-khanda', color: '#fbbf24', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 0,
+                descFn: (l) => `Ataque Concentrado: +${l}× Dano (base 3×→${3 + l}×)`,
+                effect: 'focus_dmg_mult',
+            },
+            {
+                id: 'brs_a2', name: 'Brado de Guerra', branch: 'active',
+                icon: 'fa-bullhorn', color: '#f59e0b', maxLevel: 2, costPerLevel: 1,
+                requires: 'brs_a1', row: 1, col: 0,
+                descFn: (l) => `Novo Ativo desbloqueado: reduz vel. ataque inimigo em ${l * 20}% por 5s (30⚡, 15s CD)`,
+                effect: 'war_cry_unlock',
+            },
+            // ── PASSIVAS ─────────────────────────────────────────
+            {
+                id: 'brs_p1', name: 'Chama da Fúria', branch: 'passive',
+                icon: 'fa-fire', color: '#ef4444', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 1,
+                descFn: (l) => `+${l * 8}% Dano quando HP < 50%`,
+                effect: 'fury_dmg',
+            },
+            {
+                id: 'brs_p2', name: 'Pele de Ferro', branch: 'passive',
+                icon: 'fa-shield', color: '#f87171', maxLevel: 3, costPerLevel: 1,
+                requires: 'brs_p1', row: 1, col: 1,
+                descFn: (l) => `+${l * 4}% Defesa`,
+                effect: 'iron_skin',
+            },
+            {
+                id: 'brs_p3', name: 'Sede de Sangue', branch: 'passive',
+                icon: 'fa-droplet', color: '#dc2626', maxLevel: 2, costPerLevel: 1,
+                requires: 'brs_p2', row: 2, col: 1,
+                descFn: (l) => `Drena ${l * 5}% do dano causado como HP`,
+                effect: 'lifesteal',
+            },
+            // ── UTILIDADE ────────────────────────────────────────
+            {
+                id: 'brs_u1', name: 'Resistência Animal', branch: 'utility',
+                icon: 'fa-paw', color: '#78716c', maxLevel: 2, costPerLevel: 1,
+                requires: null, row: 0, col: 2,
+                descFn: (l) => `+${l * 30}min no cap de farm offline`,
+                effect: 'offline_cap_bonus',
+            },
+        ],
+    },
 
+    paladin: {
+        color: '#facc15',
+        nodes: [
+            // ── ATIVAS ──────────────────────────────────────────
+            {
+                id: 'pal_a1', name: 'Cura Abençoada', branch: 'active',
+                icon: 'fa-cross', color: '#facc15', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 0,
+                descFn: (l) => `Cura Espontânea: +${l * 10}% HP Máx curado (base 25%→${25 + l * 10}%)`,
+                effect: 'heal_boost',
+            },
+            {
+                id: 'pal_a2', name: 'Barreira Sagrada', branch: 'active',
+                icon: 'fa-shield-halved', color: '#fde68a', maxLevel: 2, costPerLevel: 1,
+                requires: 'pal_a1', row: 1, col: 0,
+                descFn: (l) => `Novo Ativo desbloqueado: escudo de ${l * 20}% HP Máx por 6s (30🧪, 20s CD)`,
+                effect: 'holy_barrier_unlock',
+            },
+            // ── PASSIVAS ─────────────────────────────────────────
+            {
+                id: 'pal_p1', name: 'Escudo da Fé', branch: 'passive',
+                icon: 'fa-shield-halved', color: '#facc15', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 1,
+                descFn: (l) => `+${l * 5}% HP Máx`,
+                effect: 'hp_pct',
+            },
+            {
+                id: 'pal_p2', name: 'Retaliação Sagrada', branch: 'passive',
+                icon: 'fa-burst', color: '#fde68a', maxLevel: 3, costPerLevel: 1,
+                requires: 'pal_p1', row: 1, col: 1,
+                descFn: (l) => `Reflete ${l * 5}% do dano sofrido ao atacante`,
+                effect: 'retaliation',
+            },
+            {
+                id: 'pal_p3', name: 'Aura de Cura', branch: 'passive',
+                icon: 'fa-heart-pulse', color: '#86efac', maxLevel: 2, costPerLevel: 1,
+                requires: 'pal_p2', row: 2, col: 1,
+                descFn: (l) => `+${(l * 0.3).toFixed(1)} HP Regen/s`,
+                effect: 'aura_regen',
+            },
+            // ── UTILIDADE ────────────────────────────────────────
+            {
+                id: 'pal_u1', name: 'Santuário Prolongado', branch: 'utility',
+                icon: 'fa-hourglass', color: '#78716c', maxLevel: 2, costPerLevel: 1,
+                requires: null, row: 0, col: 2,
+                descFn: (l) => `+${l * 30}min no cap de farm offline`,
+                effect: 'offline_cap_bonus',
+            },
+        ],
+    },
 
+    arcane_mage: {
+        color: '#a855f7',
+        nodes: [
+            // ── ATIVAS ──────────────────────────────────────────
+            {
+                id: 'mag_a1', name: 'Impacto Arcano', branch: 'active',
+                icon: 'fa-wand-magic-sparkles', color: '#a855f7', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 0,
+                descFn: (l) => `Ataque Concentrado: consome Mana em vez de Energia e causa +${l * 15}% Dano`,
+                effect: 'arcane_focus',
+            },
+            {
+                id: 'mag_a2', name: 'Nova Arcana', branch: 'active',
+                icon: 'fa-star', color: '#c084fc', maxLevel: 2, costPerLevel: 1,
+                requires: 'mag_a1', row: 1, col: 0,
+                descFn: (l) => `Novo Ativo desbloqueado: explosão mágica de ${l * 25}% × STR em dano (40🧪, 18s CD)`,
+                effect: 'arcane_nova_unlock',
+            },
+            // ── PASSIVAS ─────────────────────────────────────────
+            {
+                id: 'mag_p1', name: 'Reserva Arcana', branch: 'passive',
+                icon: 'fa-hat-wizard', color: '#a855f7', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 1,
+                descFn: (l) => `+${l * 15} Mana Máx`,
+                effect: 'mana_max_bonus',
+            },
+            {
+                id: 'mag_p2', name: 'Canal Arcano', branch: 'passive',
+                icon: 'fa-wand-sparkles', color: '#c084fc', maxLevel: 3, costPerLevel: 1,
+                requires: 'mag_p1', row: 1, col: 1,
+                descFn: (l) => `+${(l * 0.2).toFixed(1)} Mana Regen/s`,
+                effect: 'mana_regen_bonus',
+            },
+            {
+                id: 'mag_p3', name: 'Explosão Mental', branch: 'passive',
+                icon: 'fa-brain', color: '#7c3aed', maxLevel: 2, costPerLevel: 1,
+                requires: 'mag_p2', row: 2, col: 1,
+                descFn: (l) => `+${l * 10}% Dano ignorando Armadura`,
+                effect: 'armor_pierce',
+            },
+            // ── UTILIDADE ────────────────────────────────────────
+            {
+                id: 'mag_u1', name: 'Contemplação Etérea', branch: 'utility',
+                icon: 'fa-moon', color: '#78716c', maxLevel: 2, costPerLevel: 1,
+                requires: null, row: 0, col: 2,
+                descFn: (l) => `+${l * 30}min no cap de farm offline`,
+                effect: 'offline_cap_bonus',
+            },
+        ],
+    },
+
+    shadow_thief: {
+        color: '#10b981',
+        nodes: [
+            // ── ATIVAS ──────────────────────────────────────────
+            {
+                id: 'thf_a1', name: 'Golpe Furtivo', branch: 'active',
+                icon: 'fa-mask', color: '#10b981', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 0,
+                descFn: (l) => `Ataque Concentrado: ignora +${l * 15}% da Defesa inimiga`,
+                effect: 'armor_ignore',
+            },
+            {
+                id: 'thf_a2', name: 'Golpe Duplo', branch: 'active',
+                icon: 'fa-hand-fist', color: '#6ee7b7', maxLevel: 2, costPerLevel: 1,
+                requires: 'thf_a1', row: 1, col: 0,
+                descFn: (l) => `Novo Ativo desbloqueado: 2 ataques rápidos de ${l * 60}% Dano cada (5⚡, 10s CD)`,
+                effect: 'double_strike_unlock',
+            },
+            // ── PASSIVAS ─────────────────────────────────────────
+            {
+                id: 'thf_p1', name: 'Passo das Sombras', branch: 'passive',
+                icon: 'fa-person-running', color: '#10b981', maxLevel: 3, costPerLevel: 1,
+                requires: null, row: 0, col: 1,
+                descFn: (l) => `+${l * 5}% Esquiva`,
+                effect: 'dodge_bonus',
+            },
+            {
+                id: 'thf_p2', name: 'Lâmina Envenenada', branch: 'passive',
+                icon: 'fa-skull', color: '#059669', maxLevel: 3, costPerLevel: 1,
+                requires: 'thf_p1', row: 1, col: 1,
+                descFn: (l) => `${l * 15}% de chance de Veneno (2 dano/s por 5s)`,
+                effect: 'poison_chance',
+            },
+            {
+                id: 'thf_p3', name: 'Pilhagem Aperfeiçoada', branch: 'passive',
+                icon: 'fa-coins', color: '#34d399', maxLevel: 2, costPerLevel: 1,
+                requires: 'thf_p2', row: 2, col: 1,
+                descFn: (l) => `+${l * 15}% Ouro e drops de monstros`,
+                effect: 'loot_boost',
+            },
+            // ── UTILIDADE ────────────────────────────────────────
+            {
+                id: 'thf_u1', name: 'Faro de Ladrão', branch: 'utility',
+                icon: 'fa-magnifying-glass', color: '#78716c', maxLevel: 2, costPerLevel: 1,
+                requires: null, row: 0, col: 2,
+                descFn: (l) => `+${l * 30}min no cap de farm offline`,
+                effect: 'offline_cap_bonus',
+            },
+        ],
+    },
+};
 

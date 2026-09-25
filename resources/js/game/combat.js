@@ -6,6 +6,7 @@ import {
     BOSS_SUFFIXES,
     TOWER_MODIFIERS,
 } from './constants.js';
+import { getTreeEffects } from './ui.js';
 import {
     calcMonsterHp, calcMonsterDmg, calcBossHp, calcBossDmg,
     calcMonsterGold, calcBossGold, calcMonsterXp, calcBossXp,
@@ -229,6 +230,12 @@ export function calcKillRewards(monster, state) {
         isDoubleLoot = true;
     }
 
+    // Bônus da Árvore — Pilhagem Aperfeiçoada (Ladrão thf_p3: +15%/nível ouro e drops)
+    const te = getTreeEffects(state);
+    if (te.loot_boost) {
+        gold = Math.floor(gold * (1 + te.loot_boost * 0.15));
+    }
+
     return { gold, xp, isDoubleLoot };
 }
 
@@ -267,6 +274,10 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
     if (towerModifier === 'frenzy') {
         monsterAtkSpeed = Math.max(0.4, monsterAtkSpeed * 0.5);
     }
+    // War Cry (Berserker): reduz vel de ataque do monstro por tempo limitado
+    if (monster.warCryReduction) {
+        monsterAtkSpeed = monsterAtkSpeed / (1 - monster.warCryReduction);
+    }
 
     // Herói ataca
     if (!hero.atkTimer) hero.atkTimer = 0;
@@ -277,6 +288,22 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         const heroAttack = calcHeroDmg(derived, monster, bestiary, oracleBuff, activePet, equipment, ascension, hero);
         result.dmgToMonster = heroAttack.dmg;
         result.isCritical   = heroAttack.isCritical;
+
+        // Árvore: efeitos sobre dano do herói
+        const state = { hero, treeSkills: hero._treeSkills };
+        const te = (typeof getTreeEffects === 'function' && hero._treeSkills)
+            ? getTreeEffects({ hero, treeSkills: hero._treeSkills })
+            : {};
+
+        // fury_dmg: +8%/nível de dano quando HP < 50%
+        if (te.fury_dmg && hero.hp < derived.hpMax * 0.5) {
+            result.dmgToMonster = Math.floor(result.dmgToMonster * (1 + te.fury_dmg * 0.08));
+        }
+        // armor_pierce (Mago): ignora % da armadura já aplicada — aplica bônus de dano extra
+        if (te.armor_pierce) {
+            result.dmgToMonster = Math.floor(result.dmgToMonster * (1 + te.armor_pierce * 0.10));
+        }
+        // armor_ignore (Ladrão no Ataque Concentrado) — não se aplica aqui, só no ativo
 
         // Especialização: Mago Arcano (Consome 5 de mana por explosão mágica de 40%)
         if (hero.specialization === 'arcane_mage' && (hero.mana || 0) >= 5) {
@@ -319,6 +346,19 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
             result.dmgToMonster = Math.max(1, Math.floor(result.dmgToMonster * 0.6));
         }
 
+        // lifesteal (Árvore Berserker): drena % do dano como HP
+        if (te.lifesteal) {
+            const steal = Math.floor(result.dmgToMonster * te.lifesteal * 0.05);
+            if (steal > 0) hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + steal);
+        }
+
+        // poison_chance (Árvore Ladrão): chance de envenenar monstro
+        if (te.poison_chance && !monster.poisoned && Math.random() < te.poison_chance * 0.15) {
+            monster.poisoned = true;
+            monster.poisonTicks = 5; // 5 ticks de 2 dano/s
+            monster.poisonTimer = 0;
+        }
+
         monster.hp -= result.dmgToMonster;
         monster.isHit = true;
         monster.hitTimer = 0.2;
@@ -348,12 +388,23 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
             const effectiveDef = setBonuses.protector4 ? derived.def * 1.15 : derived.def;
             result.dmgToHero = Math.max(1, Math.floor(monster.damage - effectiveDef * 0.5));
 
-            // Especialização: Paladino (Cura 5% do dano recebido e reflete 15% de volta)
+            // Barreira Sagrada ativa (Árvore Paladino): absorve dano antes do HP
+            // (holyBarrierShieldHp está no componente Alpine, passamos via hero._barrierShield)
+            if ((hero._barrierShield || 0) > 0) {
+                const absorbed = Math.min(hero._barrierShield, result.dmgToHero);
+                hero._barrierShield -= absorbed;
+                result.dmgToHero -= absorbed;
+                if (result.dmgToHero < 0) result.dmgToHero = 0;
+            }
+
+            // Especialização: Paladino (Cura 5% do dano recebido e reflete)
+            const baseReflect = 0.15;
+            const retalLvl = te.retaliation || 0;
             if (hero.specialization === 'paladin') {
                 result.paladinHeal = Math.max(1, Math.floor(result.dmgToHero * 0.05));
                 hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + result.paladinHeal);
 
-                result.reflectedDmg = Math.max(1, Math.floor(result.dmgToHero * 0.15));
+                result.reflectedDmg = Math.max(1, Math.floor(result.dmgToHero * (baseReflect + retalLvl * 0.05)));
                 monster.hp -= result.reflectedDmg;
                 if (monster.hp <= 0) result.killed = true;
             }
@@ -372,7 +423,19 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         }
     }
 
-    // Decai cooldown da barreira sagrada
+    // Veneno do Ladrão: processa ticks de dano
+    if (monster.poisoned && monster.poisonTicks > 0) {
+        monster.poisonTimer = (monster.poisonTimer || 0) + dt;
+        if (monster.poisonTimer >= 1) {
+            monster.poisonTimer -= 1;
+            monster.poisonTicks--;
+            monster.hp -= 2;
+            result.dmgToMonster += 2; // contabiliza p/ log
+            if (monster.poisonTicks <= 0) monster.poisoned = false;
+        }
+    }
+
+    // Decai cooldown da barreira sagrada (conjunto Protetor)
     if (hero.barrierCooldown > 0) {
         hero.barrierCooldown -= dt;
     }

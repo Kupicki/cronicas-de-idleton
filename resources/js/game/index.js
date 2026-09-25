@@ -21,6 +21,7 @@ import {
     BAG_UPGRADES,
     AUTO_LOOT_RARITIES,
     AUTO_LOOT_ACTIONS,
+    SKILL_TREE,
 }                                                                 from './constants.js';
 import { defaultState }                                           from './state.js';
 import {
@@ -51,6 +52,7 @@ import {
     createLogEntry, recalcDerived, getItemDelta,
     changeHeroName, buySkill, allocateStat,
     playTavernGame, loadGame, saveGame,
+    buyTreeNode, getTreeEffects,
 }                                                                 from './ui.js';
 import {
     playSwordSlash, playCritSlash, playCoinClink,
@@ -87,6 +89,7 @@ export function gameData() {
         ASCENSION_PERKS,
         ITEM_SETS,
         CLASS_SPECIALIZATIONS,
+        SKILL_TREE,
         PET_EXPEDITIONS_CONFIG,
         RELIC_RECIPES,
         TOWER_MODIFIERS,
@@ -119,6 +122,14 @@ export function gameData() {
         selectedEnchantId:    'fire',
         specializationModalOpen: false,
         selectedSpecializationId: 'berserker',
+        skillTreeOpen:        false,       // modal da Árvore de Habilidades
+        skillTreeBranch:      'active',    // aba ativa no painel: 'active'|'passive'|'utility'
+        warCryCooldownTimer:        0,     // novo ativo Berserker
+        holyBarrierCooldownTimer:   0,     // novo ativo Paladino
+        holyBarrierActiveTimer:     0,     // duração do escudo ativo
+        holyBarrierShieldHp:        0,     // HP atual do escudo
+        arcaneNovaCooldownTimer:    0,     // novo ativo Mago
+        doubleStrikeCooldownTimer:  0,     // novo ativo Ladrão
         towerModalOpen:       false,
         selectedTowerFloor:   1,
         siegeModalOpen:       false,
@@ -416,6 +427,14 @@ export function gameData() {
                 s.monster = createMonster(s.zone, s.killsInZone || 0, s.bossSafeMode);
             }
 
+            // GDD Fase 2.2: migração da Árvore de Habilidades
+            if (!s.treeSkills) s.treeSkills = {};
+            if (typeof s.hero.treePoints === 'undefined') {
+                // Retroativo: jogadores que já passaram do nível 10 recebem os pontos acumulados
+                const pastLevels = Math.max(0, (s.hero.level || 1) - 9);
+                s.hero.treePoints = pastLevels;
+            }
+
             return s;
         },
 
@@ -569,6 +588,11 @@ export function gameData() {
 
                 this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+2 Pontos de Atributo) ✨`, 'level');
                 this.showNotification(`LEVEL UP! Você alcançou o Nível ${this.state.hero.level}!`);
+
+                // Nível 10+: ganha +1 Ponto de Árvore por nível
+                if (this.state.hero.level >= 10) {
+                    this.state.hero.treePoints = (this.state.hero.treePoints || 0) + 1;
+                }
 
                 // Nível 10: Desbloqueio da Especialização de Classe
                 if (this.state.hero.level === 10 && !this.state.hero.specialization) {
@@ -1485,6 +1509,131 @@ export function gameData() {
             this.saveGame();
         },
 
+        // ==========================================
+        // ÁRVORE DE HABILIDADES
+        // ==========================================
+
+        buyTreeNode(nodeId) {
+            const result = buyTreeNode(this.state, nodeId);
+            if (result.ok) {
+                this.recalcStats();
+                this.addLog(`🌳 ${result.msg}`, 'prestige');
+                this.showNotification(result.msg);
+                this.saveGame();
+            } else {
+                this.showNotification(result.msg);
+            }
+        },
+
+        getTreeNodeLevel(nodeId) {
+            return this.state.treeSkills?.[nodeId] || 0;
+        },
+
+        getTreeNodeDesc(nodeId) {
+            const spec = this.state.hero.specialization;
+            if (!spec || !SKILL_TREE[spec]) return '';
+            const node = SKILL_TREE[spec].nodes.find(n => n.id === nodeId);
+            if (!node) return '';
+            const lvl = this.getTreeNodeLevel(nodeId);
+            return node.descFn(lvl > 0 ? lvl : 1); // mostra descrição do próximo nível se zerado
+        },
+
+        getTreeNodes(branch) {
+            const spec = this.state.hero.specialization;
+            if (!spec || !SKILL_TREE[spec]) return [];
+            return SKILL_TREE[spec].nodes.filter(n => n.branch === branch);
+        },
+
+        isTreeNodeAvailable(node) {
+            if (!node.requires) return true;
+            return (this.state.treeSkills?.[node.requires] || 0) >= 1;
+        },
+
+        // ==========================================
+        // ATIVOS DESBLOQUEADOS PELA ÁRVORE
+        // ==========================================
+
+        /** Brado de Guerra (Berserker brs_a2) — reduz velocidade de ataque inimigo */
+        useWarCry() {
+            if (this.state.hero.isDead) return;
+            const lvl = this.state.treeSkills?.brs_a2 || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Brado de Guerra na Árvore!'); return; }
+            if ((this.state.hero.energy || 0) < 30) { this.showNotification('Energia insuficiente (30⚡)!'); return; }
+            if (this.warCryCooldownTimer > 0) return;
+            this.state.hero.energy -= 30;
+            this.warCryCooldownTimer = 15;
+            const reduction = lvl * 0.20;
+            if (this.state.monster)           this.state.monster.warCryReduction      = reduction;
+            if (this.state.tower?.monster)    this.state.tower.monster.warCryReduction = reduction;
+            this.addLog(`🧨 Brado de Guerra! Inimigo ataca ${(reduction*100).toFixed(0)}% mais lento por 5s!`, 'level');
+            this.showNotification('Brado de Guerra!');
+            setTimeout(() => {
+                if (this.state.monster)        this.state.monster.warCryReduction      = 0;
+                if (this.state.tower?.monster) this.state.tower.monster.warCryReduction = 0;
+            }, 5000);
+        },
+
+        /** Barreira Sagrada (Paladino pal_a2) — escudo que absorve dano */
+        useHolyBarrier() {
+            if (this.state.hero.isDead) return;
+            const lvl = this.state.treeSkills?.pal_a2 || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Barreira Sagrada na Árvore!'); return; }
+            if ((this.state.hero.mana || 0) < 30) { this.showNotification('Mana insuficiente (30🧪)!'); return; }
+            if (this.holyBarrierCooldownTimer > 0) return;
+            this.state.hero.mana -= 30;
+            this.holyBarrierCooldownTimer = 20;
+            this.holyBarrierActiveTimer   = 6;
+            this.holyBarrierShieldHp = Math.floor(this.state.derived.hpMax * lvl * 0.20);
+            this.addLog(`🛡️ Barreira Sagrada ativada! Escudo de ${this.holyBarrierShieldHp} HP por 6s!`, 'level');
+            this.showNotification(`Barreira Sagrada: ${this.holyBarrierShieldHp} HP de escudo!`);
+        },
+
+        /** Nova Arcana (Mago mag_a2) — explosão mágica de área */
+        useArcaneNova() {
+            if (this.state.hero.isDead) return;
+            const lvl = this.state.treeSkills?.mag_a2 || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Nova Arcana na Árvore!'); return; }
+            if ((this.state.hero.mana || 0) < 40) { this.showNotification('Mana insuficiente (40🧪)!'); return; }
+            if (this.arcaneNovaCooldownTimer > 0) return;
+            this.state.hero.mana -= 40;
+            this.arcaneNovaCooldownTimer = 18;
+            const dmg = Math.floor(this.state.derived.str * lvl * 0.25);
+            const target = this.state.tower?.monster || this.state.monster;
+            if (target) {
+                target.hp -= dmg;
+                target.isHit = true; target.hitTimer = 0.5;
+                this.addLog(`✨ Nova Arcana explode causando ${dmg} de dano àrcano!`, 'level');
+                if (target.hp <= 0) {
+                    if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
+                    else if (this.state.isExploring) this._killMonster();
+                }
+            }
+            this.showNotification(`Nova Arcana: ${dmg} dano!`);
+        },
+
+        /** Golpe Duplo (Ladrão thf_a2) — dois ataques rápidos */
+        useDoubleStrike() {
+            if (this.state.hero.isDead) return;
+            const lvl = this.state.treeSkills?.thf_a2 || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Golpe Duplo na Árvore!'); return; }
+            if ((this.state.hero.energy || 0) < 5) { this.showNotification('Energia insuficiente (5⚡)!'); return; }
+            if (this.doubleStrikeCooldownTimer > 0) return;
+            this.state.hero.energy -= 5;
+            this.doubleStrikeCooldownTimer = 10;
+            const target = this.state.tower?.monster || this.state.monster;
+            if (target) {
+                const dmgPerHit = Math.floor(this.state.derived.str * lvl * 0.60);
+                target.hp -= dmgPerHit * 2;
+                target.isHit = true; target.hitTimer = 0.5;
+                this.addLog(`👊 Golpe Duplo! 2 × ${dmgPerHit} = ${dmgPerHit*2} dano total!`, 'level');
+                if (target.hp <= 0) {
+                    if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
+                    else if (this.state.isExploring) this._killMonster();
+                }
+            }
+            this.showNotification('Golpe Duplo!');
+        },
+
         // resetHeroSpecialization() removido na Fase 2 do GDD:
         // Especialização é permanente durante a vida — troca só na próxima Ascensão.
 
@@ -1968,7 +2117,11 @@ export function gameData() {
          * Não simula combate, apenas produção, regen e timers.
          */
         _processOfflineProgress(elapsedSec) {
-            const sec = Math.min(elapsedSec, 3600); // Cap de 1 hora
+            // Cap dinâmico: 1 hora base + bônus do nó de utilidade da Árvore
+            const { getTreeEffects: teFn } = { getTreeEffects };
+            const te = teFn(this.state);
+            const offlineBonusSec = (te.offline_cap_bonus || 0) * 30 * 60; // 30min por nível de nó
+            const sec = Math.min(elapsedSec, 3600 + offlineBonusSec);
 
             // Produção de construções
             processBuildings(this.state, sec);
@@ -2075,12 +2228,25 @@ export function gameData() {
             // Salva timestamp para catch-up offline
             this.state.lastTickAt = Date.now();
 
-            // Cooldown de habilidades ativas
+            // Cooldown de habilidades ativas (base)
             if (this.activeCooldownTimer > 0) {
                 this.activeCooldownTimer = Math.max(0, this.activeCooldownTimer - dt);
             }
             if (this.healCooldownTimer > 0) {
                 this.healCooldownTimer = Math.max(0, this.healCooldownTimer - dt);
+            }
+            // Cooldowns de ativos desbloqueados pela Árvore
+            if (this.warCryCooldownTimer > 0)       this.warCryCooldownTimer       = Math.max(0, this.warCryCooldownTimer - dt);
+            if (this.holyBarrierCooldownTimer > 0)   this.holyBarrierCooldownTimer   = Math.max(0, this.holyBarrierCooldownTimer - dt);
+            if (this.arcaneNovaCooldownTimer > 0)    this.arcaneNovaCooldownTimer    = Math.max(0, this.arcaneNovaCooldownTimer - dt);
+            if (this.doubleStrikeCooldownTimer > 0)  this.doubleStrikeCooldownTimer  = Math.max(0, this.doubleStrikeCooldownTimer - dt);
+            // Barreira Sagrada: decai e expira
+            if (this.holyBarrierActiveTimer > 0) {
+                this.holyBarrierActiveTimer = Math.max(0, this.holyBarrierActiveTimer - dt);
+                if (this.holyBarrierActiveTimer <= 0) {
+                    this.holyBarrierShieldHp = 0;
+                    this.addLog('⚡ Barreira Sagrada expirou!', 'narrative');
+                }
             }
 
             // Recuperação / respawn (regen normal baseada nos atributos)
@@ -2146,6 +2312,10 @@ export function gameData() {
 
                 // Processa Combate da Exploração
                 if (this.state.isExploring && this.state.monster) {
+                    // Injeta referências temporárias para a Árvore e Barreira no objeto hero
+                    this.state.hero._treeSkills  = this.state.treeSkills;
+                    this.state.hero._barrierShield = this.holyBarrierShieldHp;
+
                     const result = processCombatTick(
                         dt,
                         this.state.hero,
@@ -2158,6 +2328,10 @@ export function gameData() {
                         this.state.ascension,
                         null
                     );
+
+                    // Sincroniza shield de volta (pode ter sido consumido em combat.js)
+                    this.holyBarrierShieldHp = this.state.hero._barrierShield || 0;
+
 
                     // Animação de ataque do herói
                     if (result.heroAttacked) {

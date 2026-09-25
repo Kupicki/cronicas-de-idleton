@@ -1163,18 +1163,160 @@
                         </div>
                     </template>
 
-                    <!-- SE ESPECIALIZAÇÃO JÁ ATIVA: BOTAO DE REDEFINIR E DETALHES -->
+                    <!-- SE ESPECIALIZAÇÃO JÁ ATIVA: CLASSE + PONTOS DE ÁRVORE + ACESSO À ÁRVORE -->
                     <template x-if="state.hero.specialization">
-                        <div class="bg-stone-950 p-2.5 rounded border border-stone-800 flex items-center justify-between text-xs">
-                            <div class="flex items-center gap-2">
-                                <i class="fas" :class="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.icon" :style="`color: ${CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.color}`"></i>
-                                <span class="text-stone-300 font-bold" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name"></span>
-                                <span class="text-stone-500 text-[10px]" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.desc"></span>
+                        <div class="space-y-2">
+                            <div class="bg-stone-950 p-2.5 rounded border border-stone-800 flex items-center justify-between text-xs">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas" :class="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.icon" :style="`color: ${CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.color}`"></i>
+                                    <span class="text-stone-300 font-bold" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name"></span>
+                                    <span class="text-stone-500 text-[10px]" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.desc"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <!-- Indicador de Pontos de Árvore -->
+                                    <span class="flex items-center gap-1 text-[10px]"
+                                          :class="(state.hero.treePoints || 0) > 0 ? 'text-emerald-400 font-bold animate-pulse' : 'text-stone-500'">
+                                        <i class="fas fa-tree text-[8px]"></i>
+                                        <span x-text="(state.hero.treePoints || 0)"></span> pts
+                                    </span>
+                                    <button @click="skillTreeOpen = true"
+                                            class="text-[10px] bg-emerald-900/60 hover:bg-emerald-800/80 border border-emerald-700/50 text-emerald-300 font-bold px-2 py-1 rounded cursor-pointer transition-colors">
+                                        🌳 Árvore
+                                    </button>
+                                </div>
                             </div>
-                            <span class="text-xs text-stone-500 italic" title="A Especialização só pode ser alterada na próxima Ascensão.">🔒 Permanente até Ascender</span>
                         </div>
                     </template>
                 </div>
+
+                <!-- ══════════════════════════════════════════════════════════════════ -->
+                <!-- MODAL — ÁRVORE DE HABILIDADES                                     -->
+                <!-- ══════════════════════════════════════════════════════════════════ -->
+                <template x-if="skillTreeOpen">
+                    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[120] flex items-center justify-center p-4" @click.self="skillTreeOpen = false">
+                        <div class="bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+
+                            <!-- Header do Modal -->
+                            <div class="flex items-center justify-between p-4 border-b border-stone-800 shrink-0">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-tree text-emerald-400 text-xl"></i>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white medieval-font">Árvore de Habilidades</h3>
+                                        <p class="text-[10px] text-stone-400"
+                                           x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name + ' · ' + (state.hero.treePoints || 0) + ' pontos disponíveis'"></p>
+                                    </div>
+                                </div>
+                                <button @click="skillTreeOpen = false" class="text-stone-500 hover:text-stone-200 cursor-pointer p-1">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <!-- Abas de Ramo -->
+                            <div class="flex border-b border-stone-800 shrink-0">
+                                <template x-for="branch in [{id:'active',label:'⚔️ Ativas'},{id:'passive',label:'🛡️ Passivas'},{id:'utility',label:'⚙️ Utilidade'}]" :key="branch.id">
+                                    <button @click="skillTreeBranch = branch.id"
+                                            :class="skillTreeBranch === branch.id
+                                                ? 'border-b-2 border-emerald-400 text-emerald-300 font-bold'
+                                                : 'text-stone-500 hover:text-stone-300'"
+                                            class="flex-1 py-2.5 text-xs transition-colors cursor-pointer"
+                                            x-text="branch.label">
+                                    </button>
+                                </template>
+                            </div>
+
+                            <!-- Conteúdo: Lista de Nós -->
+                            <div class="overflow-y-auto flex-1 p-4 space-y-3">
+                                <template x-for="node in getTreeNodes(skillTreeBranch)" :key="node.id">
+                                    <div class="rounded-xl border p-3 transition-all"
+                                         :class="{
+                                            'border-emerald-600/50 bg-emerald-950/30': isTreeNodeAvailable(node) && getTreeNodeLevel(node.id) < node.maxLevel,
+                                            'border-amber-500/60 bg-amber-950/20': getTreeNodeLevel(node.id) >= node.maxLevel,
+                                            'border-stone-800 bg-stone-900/50 opacity-50': !isTreeNodeAvailable(node)
+                                         }">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <!-- Ícone + Info -->
+                                            <div class="flex items-start gap-3 flex-1 min-w-0">
+                                                <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border"
+                                                     :style="`background: ${node.color}22; border-color: ${node.color}55`">
+                                                    <i class="fas text-sm" :class="node.icon" :style="`color: ${node.color}`"></i>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                                        <span class="text-xs font-bold text-stone-200" x-text="node.name"></span>
+                                                        <!-- Nível -->
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                                                              :class="getTreeNodeLevel(node.id) >= node.maxLevel
+                                                                  ? 'bg-amber-900/50 text-amber-400 border border-amber-700/50'
+                                                                  : 'bg-stone-800 text-stone-400'"
+                                                              x-text="getTreeNodeLevel(node.id) >= node.maxLevel ? 'MAX' : `Nv. ${getTreeNodeLevel(node.id)}/${node.maxLevel}`">
+                                                        </span>
+                                                        <!-- Badge de requisito não atendido -->
+                                                        <template x-if="!isTreeNodeAvailable(node)">
+                                                            <span class="text-[9px] text-red-400 bg-red-950/40 border border-red-800/40 px-1 py-0.5 rounded">🔒 Requer pré-requisito</span>
+                                                        </template>
+                                                    </div>
+                                                    <!-- Descrição do efeito atual ou do próximo nível -->
+                                                    <p class="text-[10px] text-stone-400 mt-0.5 leading-snug"
+                                                       x-text="node.descFn(Math.max(1, getTreeNodeLevel(node.id)))"></p>
+                                                    <!-- Requisito -->
+                                                    <template x-if="node.requires">
+                                                        <p class="text-[9px] text-stone-600 mt-0.5"
+                                                           x-text="'Req: ' + (SKILL_TREE[state.hero.specialization]?.nodes.find(n=>n.id===node.requires)?.name || node.requires)"></p>
+                                                    </template>
+                                                </div>
+                                            </div>
+
+                                            <!-- Botão de Compra -->
+                                            <div class="shrink-0 flex flex-col items-end gap-1">
+                                                <template x-if="getTreeNodeLevel(node.id) < node.maxLevel">
+                                                    <button @click="buyTreeNode(node.id)"
+                                                            :disabled="!isTreeNodeAvailable(node) || (state.hero.treePoints || 0) < (node.costPerLevel || 1)"
+                                                            :class="isTreeNodeAvailable(node) && (state.hero.treePoints || 0) >= (node.costPerLevel || 1)
+                                                                ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-500 text-white cursor-pointer'
+                                                                : 'bg-stone-800 border-stone-700 text-stone-500 cursor-not-allowed opacity-50'"
+                                                            class="text-[10px] font-bold px-2.5 py-1.5 rounded border transition-colors">
+                                                        +1 <i class="fas fa-tree text-[8px] ml-0.5"></i>
+                                                    </button>
+                                                </template>
+                                                <template x-if="getTreeNodeLevel(node.id) >= node.maxLevel">
+                                                    <span class="text-[10px] text-amber-400 font-bold px-2 py-1.5">✓ MAX</span>
+                                                </template>
+                                                <!-- Barra de progresso do nó -->
+                                                <div class="w-16 h-1 bg-stone-800 rounded-full overflow-hidden">
+                                                    <div class="h-full rounded-full transition-all"
+                                                         :class="getTreeNodeLevel(node.id) >= node.maxLevel ? 'bg-amber-500' : 'bg-emerald-500'"
+                                                         :style="`width: ${(getTreeNodeLevel(node.id)/node.maxLevel)*100}%`"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- Empty state quando sem nós no ramo -->
+                                <template x-if="getTreeNodes(skillTreeBranch).length === 0">
+                                    <div class="text-center text-stone-500 text-xs py-8">
+                                        <i class="fas fa-tree text-3xl mb-2 opacity-30"></i>
+                                        <p>Nenhuma habilidade disponível neste ramo.</p>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Footer: pontos restantes -->
+                            <div class="border-t border-stone-800 p-3 shrink-0 flex items-center justify-between">
+                                <span class="text-xs text-stone-400">
+                                    Pontos de Árvore:
+                                    <span class="font-bold"
+                                          :class="(state.hero.treePoints || 0) > 0 ? 'text-emerald-400' : 'text-stone-500'"
+                                          x-text="state.hero.treePoints || 0"></span>
+                                </span>
+                                <span class="text-[10px] text-stone-600">🔒 Reseta na próxima Ascensão</span>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="sr-only" x-ref="treeModalAnchor"></div>
+
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Equipamentos e Atributos -->

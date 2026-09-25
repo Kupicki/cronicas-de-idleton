@@ -3,6 +3,64 @@
 // ==========================================
 
 import { trackQuestProgress } from './quests.js';
+import { SKILL_TREE } from './constants.js';
+
+// ==========================================
+// ÁRVORE DE HABILIDADES — Helpers
+// ==========================================
+
+/**
+ * Agrega os níveis de todos os nós comprados em um mapa de efeitos.
+ * Ex.: { fury_dmg: 2, iron_skin: 1, offline_cap_bonus: 2 }
+ */
+export function getTreeEffects(state) {
+    const spec = state.hero?.specialization;
+    if (!spec || !SKILL_TREE[spec]) return {};
+    const effects = {};
+    const nodes   = SKILL_TREE[spec].nodes;
+    const bought  = state.treeSkills || {};
+    nodes.forEach(node => {
+        const lvl = bought[node.id] || 0;
+        if (lvl > 0) effects[node.effect] = (effects[node.effect] || 0) + lvl;
+    });
+    return effects;
+}
+
+/**
+ * Compra (ou sobe de nível) um nó da Árvore de Habilidades.
+ * Retorna { ok, msg }.
+ */
+export function buyTreeNode(state, nodeId) {
+    const spec = state.hero?.specialization;
+    if (!spec) return { ok: false, msg: 'Escolha uma Classe antes de investir na Árvore!' };
+    const treeDef = SKILL_TREE[spec];
+    if (!treeDef) return { ok: false, msg: 'Classe inválida.' };
+
+    const node = treeDef.nodes.find(n => n.id === nodeId);
+    if (!node) return { ok: false, msg: 'Nó inválido.' };
+
+    if (!state.treeSkills) state.treeSkills = {};
+    const currentLvl = state.treeSkills[nodeId] || 0;
+
+    if (currentLvl >= node.maxLevel) return { ok: false, msg: `${node.name} já está no nível máximo!` };
+
+    // Verifica requisito
+    if (node.requires) {
+        const reqLvl = state.treeSkills[node.requires] || 0;
+        if (reqLvl < 1) {
+            const reqNode = treeDef.nodes.find(n => n.id === node.requires);
+            return { ok: false, msg: `Requer: ${reqNode?.name || node.requires} (Nível 1+)` };
+        }
+    }
+
+    const cost = node.costPerLevel || 1;
+    if ((state.hero.treePoints || 0) < cost) return { ok: false, msg: `Pontos de Árvore insuficientes (custo: ${cost}).` };
+
+    state.hero.treePoints = (state.hero.treePoints || 0) - cost;
+    state.treeSkills[nodeId] = currentLvl + 1;
+
+    return { ok: true, msg: `${node.name} evoluído para Nível ${state.treeSkills[nodeId]}!` };
+}
 
 // ---- LOG ----
 
@@ -62,6 +120,15 @@ export function recalcDerived(state) {
     if (activePet === 'golem_mini') def   = Math.floor(def * 1.15);
     if (activePet === 'salamandra') regen += 0.5;
     if (activePet === 'raposa')     lck   += 2;
+
+    // Bônus da Árvore de Habilidades (GDD Fase 2.2)
+    const te = getTreeEffects(state);
+    if (te.hp_pct)           hpMax  = Math.floor(hpMax  * (1 + te.hp_pct  * 0.05));
+    if (te.aura_regen)       regen  += te.aura_regen * 0.3;
+    if (te.iron_skin)        def    = Math.floor(def   * (1 + te.iron_skin * 0.04));
+    if (te.mana_max_bonus)   manaMax   += te.mana_max_bonus * 15;
+    if (te.mana_regen_bonus) manaRegen += te.mana_regen_bonus * 0.2;
+    if (te.dodge_bonus)      lck   += te.dodge_bonus * 2; // esquiva via sorte
 
     // Velocidade de ataque (GDD: base 2.0s - AGI * 0.05s)
     let atkSpeed = Math.max(0.2, 2.0 - (agi * 0.05));

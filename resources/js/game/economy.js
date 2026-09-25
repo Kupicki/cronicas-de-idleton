@@ -682,6 +682,8 @@ export function performAscension(state) {
     for (const s in state.skills) {
         state.skills[s].level = 0;
     }
+    state.treeSkills = {};
+    state.hero.treePoints = 0;
 
     // 7. Companheiros / Pets (resetam)
     state.pets = {

@@ -15,6 +15,7 @@ export const defaultState = {
         isRecovering: false,
         pe: 0,
         statPoints: 0,   // pontos para alocar em STR/DEF/INT/AGI/LCK/PER/REG/ENE
+        treePoints: 0,   // pontos para investir na Árvore de Habilidades (pool separado)
         nameChanges: 0,
         specialization: null, // 'berserker' | 'paladin' | 'arcane_mage' | 'shadow_thief'
     },
@@ -140,6 +141,7 @@ export const defaultState = {
         thick_hide: { name: 'Casca Grossa', level: 0, desc: '+5 Defesa/nível' },
         golden_hands: { name: 'Mãos de Ouro', level: 0, desc: '+5% Ouro/nível' },
     },
+    treeSkills: {},   // { [nodeId]: level } — nós da Árvore de Habilidades (GDD Fase 2.2)
     marketPurchases: {
         wood: 0,
         scrap: 0,
