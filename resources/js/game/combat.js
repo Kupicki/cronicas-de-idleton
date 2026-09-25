@@ -263,6 +263,11 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
 
     const setBonuses = calcActiveSetBonuses(equipment);
 
+    // Efeitos da Árvore de Habilidades (disponíveis para ataque do herói e reação do monstro)
+    const te = (typeof getTreeEffects === 'function' && hero._treeSkills)
+        ? getTreeEffects({ hero, treeSkills: hero._treeSkills })
+        : {};
+
     // Ajuste de velocidade de ataque do herói (Bônus Tempestade 4 peças: +10% vel)
     let heroAtkSpeed = derived.atkSpeed;
     if (setBonuses.storm4) {
@@ -276,7 +281,8 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
     }
     // War Cry (Berserker): reduz vel de ataque do monstro por tempo limitado
     if (monster.warCryReduction) {
-        monsterAtkSpeed = monsterAtkSpeed / (1 - monster.warCryReduction);
+        const reduction = Math.min(0.9, monster.warCryReduction);
+        monsterAtkSpeed = monsterAtkSpeed / (1 - reduction);
     }
 
     // Herói ataca
@@ -288,12 +294,6 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         const heroAttack = calcHeroDmg(derived, monster, bestiary, oracleBuff, activePet, equipment, ascension, hero);
         result.dmgToMonster = heroAttack.dmg;
         result.isCritical   = heroAttack.isCritical;
-
-        // Árvore: efeitos sobre dano do herói
-        const state = { hero, treeSkills: hero._treeSkills };
-        const te = (typeof getTreeEffects === 'function' && hero._treeSkills)
-            ? getTreeEffects({ hero, treeSkills: hero._treeSkills })
-            : {};
 
         // fury_dmg: +8%/nível de dano quando HP < 50%
         if (te.fury_dmg && hero.hp < derived.hpMax * 0.5) {

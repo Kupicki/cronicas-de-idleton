@@ -37,10 +37,13 @@ function drawMonster(ctx, x, y, monster, timestamp) {
  * Chamada pelo game loop a cada frame.
  */
 export function renderCanvas(ctx, canvas, state, derived, floats, stars, timestamp, heroAttacking, heroIsHit) {
-    if (!ctx || !canvas.width) return;
+    if (!ctx || !canvas || !canvas.width || !canvas.height) return;
 
-    const w = canvas.logicalWidth || canvas.width;
-    const h = canvas.logicalHeight || canvas.height;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const w = canvas.logicalWidth || (canvas.width / dpr);
+    const h = canvas.logicalHeight || (canvas.height / dpr);
 
     // Desenha Fundo Arena via Biblioteca Visual
     drawArenaBackground(ctx, w, h, stars, timestamp);
@@ -184,15 +187,20 @@ export function setupCanvas(canvasEl) {
 export function resizeCanvas(canvas, ctx) {
     if (!canvas) return false;
     const rect = canvas.parentElement?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return false;
+    if (!rect || rect.width === 0 || rect.height === 0) return false;
 
     const dpr = window.devicePixelRatio || 1;
-    if (canvas.logicalWidth !== rect.width || canvas.logicalHeight !== rect.height) {
+    const newWidth = Math.round(rect.width * dpr);
+    const newHeight = Math.round(rect.height * dpr);
+
+    if (canvas.logicalWidth !== rect.width || canvas.logicalHeight !== rect.height || canvas.width !== newWidth || canvas.height !== newHeight) {
         canvas.logicalWidth  = rect.width;
         canvas.logicalHeight = rect.height;
-        canvas.width  = rect.width  * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
+        canvas.width  = newWidth;
+        canvas.height = newHeight;
+        if (ctx) {
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
         return true;
     }
     return false;

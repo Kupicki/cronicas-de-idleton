@@ -516,8 +516,13 @@ export function gameData() {
         switchTab(id)  {
             this.activeTab = id;
             if (window.innerWidth < 1024) this.menuOpen = false;
-            if (id === 'explore' && !this.canvas) {
-                this.$nextTick(() => this._setupCanvas());
+            if (id === 'explore') {
+                this.$nextTick(() => {
+                    this._setupCanvas();
+                    if (this.canvas && this.ctx) {
+                        resizeCanvas(this.canvas, this.ctx);
+                    }
+                });
             }
         },
 
@@ -2209,15 +2214,16 @@ export function gameData() {
 
 
         _gameLoop(timestamp) {
-            const dt = Math.min((timestamp - this.lastTick) / 1000, 0.1); // máx 100ms de dt
-            this.lastTick = timestamp;
+            try {
+                const dt = Math.min((timestamp - this.lastTick) / 1000, 0.1); // máx 100ms de dt
+                this.lastTick = timestamp;
 
-            // Resize canvas quando na aba explore
-            if (this.canvas && this.activeTab === 'explore') {
-                if (resizeCanvas(this.canvas, this.ctx)) {
-                    this.stars = initStars(this.canvas);
+                // Resize canvas quando na aba explore
+                if (this.canvas && this.activeTab === 'explore') {
+                    if (resizeCanvas(this.canvas, this.ctx)) {
+                        this.stars = initStars(this.canvas);
+                    }
                 }
-            }
 
             // Produção de construções e tempo jogado
             processBuildings(this.state, dt);
@@ -2475,10 +2481,15 @@ export function gameData() {
                 }
             }
 
-            // Render
-            renderCanvas(this.ctx, this.canvas, this.state, this.state.derived, this.floats, this.stars, timestamp, this.heroAttacking, this.heroIsHit);
-
-            requestAnimationFrame(ts => this._gameLoop(ts));
+                // Render apenas se na aba de exploração
+                if (this.canvas && this.activeTab === 'explore') {
+                    renderCanvas(this.ctx, this.canvas, this.state, this.state.derived, this.floats, this.stars, timestamp, this.heroAttacking, this.heroIsHit);
+                }
+            } catch (err) {
+                console.error('[Idleton GameLoop Error]', err);
+            } finally {
+                requestAnimationFrame(ts => this._gameLoop(ts));
+            }
         },
     };
 }
