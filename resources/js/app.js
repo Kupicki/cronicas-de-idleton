@@ -1,4 +1,4 @@
-import Alpine from 'https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/module.esm.js';
+import Alpine from 'alpinejs';
 import { gameData } from './game/index.js';
 
 window.Alpine = Alpine;

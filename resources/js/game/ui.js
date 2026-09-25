@@ -107,9 +107,8 @@ export function recalcDerived(state) {
     if (te.hp_pct)           hpMax  = Math.floor(hpMax  * (1 + te.hp_pct  * 0.05));
     if (te.aura_regen)       regen  += te.aura_regen * 0.3;
     if (te.iron_skin)        def    = Math.floor(def   * (1 + te.iron_skin * 0.04));
-    if (te.mana_max_bonus)   manaMax   += te.mana_max_bonus * 15;
-    if (te.mana_regen_bonus) manaRegen += te.mana_regen_bonus * 0.2;
     if (te.dodge_bonus)      lck   += te.dodge_bonus * 2; // esquiva via sorte
+    // mana_max_bonus e mana_regen_bonus aplicados após declaração de manaMax/manaRegen (abaixo)
 
     // Velocidade de ataque (GDD: base 2.0s - AGI * 0.05s)
     let atkSpeed = Math.max(0.2, 2.0 - (agi * 0.05));
@@ -120,8 +119,11 @@ export function recalcDerived(state) {
     // Energia e Mana balanceadas
     const energyMax   = 25 + (ene * 5);
     const energyRegen = 0.5 + (ene * 0.5);
-    const manaMax     = 25 + (int * 5);
-    const manaRegen   = 0.2 + (int * 0.1);
+    let manaMax     = 25 + (int * 5);
+    let manaRegen   = 0.2 + (int * 0.1);
+    // Bônus de mana da Árvore (aplicados após declaração)
+    if (te.mana_max_bonus)   manaMax   += te.mana_max_bonus * 15;
+    if (te.mana_regen_bonus) manaRegen += te.mana_regen_bonus * 0.2;
 
     return { hpMax, str, def, int, agi, lck, per, regen, atkSpeed, energyMax, manaMax, energyRegen, manaRegen };
 }
