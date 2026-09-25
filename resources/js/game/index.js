@@ -22,6 +22,7 @@ import {
     AUTO_LOOT_RARITIES,
     AUTO_LOOT_ACTIONS,
     SKILL_TREE,
+    getTreeEffects,
 }                                                                 from './constants.js';
 import { defaultState }                                           from './state.js';
 import {
@@ -52,7 +53,7 @@ import {
     createLogEntry, recalcDerived, getItemDelta,
     changeHeroName, buySkill, allocateStat,
     playTavernGame, loadGame, saveGame,
-    buyTreeNode, getTreeEffects,
+    buyTreeNode,
 }                                                                 from './ui.js';
 import {
     playSwordSlash, playCritSlash, playCoinClink,
@@ -2118,10 +2119,10 @@ export function gameData() {
          */
         _processOfflineProgress(elapsedSec) {
             // Cap dinâmico: 1 hora base + bônus do nó de utilidade da Árvore
-            const { getTreeEffects: teFn } = { getTreeEffects };
-            const te = teFn(this.state);
+            const te = getTreeEffects(this.state);
             const offlineBonusSec = (te.offline_cap_bonus || 0) * 30 * 60; // 30min por nível de nó
             const sec = Math.min(elapsedSec, 3600 + offlineBonusSec);
+
 
             // Produção de construções
             processBuildings(this.state, sec);

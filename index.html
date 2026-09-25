@@ -5,10 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crônicas de Idleton</title>
     <meta name="description" content="Crônicas de Idleton — Um idle RPG medieval de aventura, combate e exploração no navegador.">
-    <link rel="icon" href="/assets/Logo.svg" type="image/svg+xml">
+    <link rel="icon" href="./assets/Logo.svg" type="image/svg+xml">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/resources/css/app.css">
-    <script type="module" src="/resources/js/app.js"></script>
+    <link rel="stylesheet" href="./resources/css/app.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "alpinejs": "https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/module.esm.js"
+        }
+    }
+    </script>
+    <script type="module" src="./resources/js/app.js"></script>
 </head>
 <body class="h-screen flex flex-col overflow-hidden" x-data="gameData()" x-init="initGame()">
 
@@ -20,7 +27,7 @@
             </button>
             <div class="flex items-center gap-2 select-none">
                 <!-- Logo Customizada (public/assets/logo.png ou .svg) -->
-                <img src="/assets/logo.png"
+                <img src="./assets/logo.png"
                      x-on:load="handleAssetLoad($event)"
                      x-on:error="handleAssetError($event)"
                      class="h-8 max-w-[160px] object-contain drop-shadow transition-opacity duration-200"
@@ -265,7 +272,7 @@
                         <!-- Ferreiro -->
                         <button @click="cityPanel = cityPanel === 'blacksmith' ? null : 'blacksmith'" class="group bg-stone-800/90 hover:bg-stone-700/90 border-2 rounded-lg p-5 text-center transition-all flex flex-col items-center cursor-pointer" :class="cityPanel === 'blacksmith' ? 'border-[#fbbf24] shadow-lg shadow-amber-900/30' : 'border-stone-700'">
                             <div class="w-16 h-16 bg-stone-900 rounded-lg flex items-center justify-center mb-3 border border-stone-600 group-hover:border-amber-700 transition-colors relative overflow-hidden">
-                                <img src="/assets/city/blacksmith.png"
+                                <img src="./assets/city/blacksmith.png"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
                                      class="w-12 h-12 object-contain transition-opacity duration-200 z-10"
@@ -280,7 +287,7 @@
                         <!-- Taverna -->
                         <button @click="cityPanel = cityPanel === 'tavern' ? null : 'tavern'; refreshTavernRumor()" class="group bg-stone-800/90 hover:bg-stone-700/90 border-2 rounded-lg p-5 text-center transition-all flex flex-col items-center cursor-pointer" :class="cityPanel === 'tavern' ? 'border-[#fbbf24] shadow-lg shadow-amber-900/30' : 'border-stone-700'">
                             <div class="w-16 h-16 bg-stone-900 rounded-lg flex items-center justify-center mb-3 border border-stone-600 group-hover:border-amber-700 transition-colors relative overflow-hidden">
-                                <img src="/assets/city/tavern.png"
+                                <img src="./assets/city/tavern.png"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
                                      class="w-12 h-12 object-contain transition-opacity duration-200 z-10"
@@ -301,7 +308,7 @@
                                 </span>
                             </template>
                             <div class="w-16 h-16 bg-stone-900 rounded-lg flex items-center justify-center mb-3 border border-stone-600 group-hover:border-purple-600 transition-colors relative overflow-hidden">
-                                <img src="/assets/city/oracle.png"
+                                <img src="./assets/city/oracle.png"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
                                      class="w-12 h-12 object-contain transition-opacity duration-200 z-10"
@@ -316,7 +323,7 @@
                         <!-- Mercado (GDD: Seção 15) -->
                         <button @click="cityPanel = cityPanel === 'market' ? null : 'market'" class="group bg-stone-800/90 hover:bg-stone-700/90 border-2 rounded-lg p-5 text-center transition-all flex flex-col items-center cursor-pointer" :class="cityPanel === 'market' ? 'border-emerald-400 shadow-lg shadow-emerald-900/30' : 'border-stone-700'">
                             <div class="w-16 h-16 bg-stone-900 rounded-lg flex items-center justify-center mb-3 border border-stone-600 group-hover:border-emerald-600 transition-colors relative overflow-hidden">
-                                <img src="/assets/city/market.png"
+                                <img src="./assets/city/market.png"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
                                      class="w-12 h-12 object-contain transition-opacity duration-200 z-10"
@@ -335,7 +342,7 @@
                     <div class="flex justify-between items-center border-b border-stone-800 pb-3 mb-4">
                         <div class="flex items-center gap-2">
                             <div class="w-6 h-6 flex items-center justify-center shrink-0 relative">
-                                <img src="/assets/city/quests_board.png"
+                                <img src="./assets/city/quests_board.png"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
                                      class="w-5 h-5 object-contain transition-opacity duration-200 z-10"
@@ -2139,7 +2146,7 @@
                 <div class="panel p-4 bg-stone-900 border border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
                         <div class="w-12 h-12 rounded-lg bg-stone-950 border border-emerald-600/60 flex items-center justify-center text-2xl text-emerald-400 shrink-0 relative overflow-hidden">
-                            <img src="/assets/domain/fortification.png"
+                            <img src="./assets/domain/fortification.png"
                                  x-on:load="handleAssetLoad($event)"
                                  x-on:error="handleAssetError($event)"
                                  class="w-9 h-9 object-contain transition-opacity duration-200 z-10"
@@ -2719,7 +2726,7 @@
                         <!-- Saldo de Diamantes de Ascensão -->
                         <div class="bg-stone-950 px-4 py-2.5 rounded-xl border border-cyan-700/50 flex items-center gap-2.5 shadow-inner">
                             <div class="w-8 h-8 flex items-center justify-center shrink-0 relative">
-                                <img src="/assets/ascension/ancestral_diamond.png"
+                                <img src="./assets/ascension/ancestral_diamond.png"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
                                      class="w-8 h-8 object-contain transition-opacity duration-200 z-10"
@@ -2802,7 +2809,7 @@
                             <div class="text-3xl font-black text-cyan-300 flex items-center justify-center gap-2">
                                 <span>+<span x-text="calcAscensionReward()"></span></span>
                                 <div class="w-8 h-8 flex items-center justify-center shrink-0 relative inline-flex">
-                                    <img src="/assets/ascension/ancestral_diamond.png"
+                                    <img src="./assets/ascension/ancestral_diamond.png"
                                          x-on:load="handleAssetLoad($event)"
                                          x-on:error="handleAssetError($event)"
                                          class="w-7 h-7 object-contain transition-opacity duration-200 z-10"

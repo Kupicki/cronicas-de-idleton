@@ -3,28 +3,9 @@
 // ==========================================
 
 import { trackQuestProgress } from './quests.js';
-import { SKILL_TREE } from './constants.js';
+import { SKILL_TREE, getTreeEffects } from './constants.js';
 
-// ==========================================
-// ÁRVORE DE HABILIDADES — Helpers
-// ==========================================
-
-/**
- * Agrega os níveis de todos os nós comprados em um mapa de efeitos.
- * Ex.: { fury_dmg: 2, iron_skin: 1, offline_cap_bonus: 2 }
- */
-export function getTreeEffects(state) {
-    const spec = state.hero?.specialization;
-    if (!spec || !SKILL_TREE[spec]) return {};
-    const effects = {};
-    const nodes   = SKILL_TREE[spec].nodes;
-    const bought  = state.treeSkills || {};
-    nodes.forEach(node => {
-        const lvl = bought[node.id] || 0;
-        if (lvl > 0) effects[node.effect] = (effects[node.effect] || 0) + lvl;
-    });
-    return effects;
-}
+// getTreeEffects está em constants.js (evita dependência circular com combat.js)
 
 /**
  * Compra (ou sobe de nível) um nó da Árvore de Habilidades.

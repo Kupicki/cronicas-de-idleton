@@ -875,3 +875,26 @@ export const SKILL_TREE = {
     },
 };
 
+// ==========================================
+// HELPER: efeitos da Árvore de Habilidades
+// ==========================================
+// Colocado em constants.js (que não importa nada) para evitar
+// qualquer dependência circular entre combat.js e ui.js.
+
+/**
+ * Agrega os níveis de todos os nós comprados num mapa de efeitos.
+ * Ex.: { fury_dmg: 2, iron_skin: 1, offline_cap_bonus: 2 }
+ */
+export function getTreeEffects(state) {
+    const spec = state.hero?.specialization;
+    if (!spec || !SKILL_TREE[spec]) return {};
+    const effects = {};
+    const nodes   = SKILL_TREE[spec].nodes;
+    const bought  = state.treeSkills || {};
+    nodes.forEach(node => {
+        const lvl = bought[node.id] || 0;
+        if (lvl > 0) effects[node.effect] = (effects[node.effect] || 0) + lvl;
+    });
+    return effects;
+}
+

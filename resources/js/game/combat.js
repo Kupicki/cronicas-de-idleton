@@ -6,7 +6,7 @@ import {
     BOSS_SUFFIXES,
     TOWER_MODIFIERS,
 } from './constants.js';
-import { getTreeEffects } from './ui.js';
+import { getTreeEffects } from './constants.js';
 import {
     calcMonsterHp, calcMonsterDmg, calcBossHp, calcBossDmg,
     calcMonsterGold, calcBossGold, calcMonsterXp, calcBossXp,
