@@ -1758,9 +1758,10 @@
                             <div>
                                 <div class="flex justify-between text-[8px] text-stone-500 font-bold mb-0.5">
                                     <span>⚔️ Ataque do Inimigo</span>
+                                    <span x-text="`${Math.max(0, ((state.monster?.atkSpeed || 2) - (state.monster?.atkTimer || 0))).toFixed(1)}s`"></span>
                                 </div>
                                 <div class="w-full bg-stone-950 h-2 rounded overflow-hidden border border-stone-800">
-                                    <div class="bg-red-500 h-full" :style="`width: ${Math.min(100, ((state.monster?.atkTimer || 0) / state.monster?.atkSpeed) * 100)}%`"></div>
+                                    <div class="bg-red-500 h-full" :style="`width: ${Math.min(100, ((state.monster?.atkTimer || 0) / (state.monster?.atkSpeed || 2)) * 100)}%`"></div>
                                 </div>
                             </div>
                         </div>
