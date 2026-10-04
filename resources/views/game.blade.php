@@ -60,6 +60,16 @@
         </div>
         
         <div class="flex items-center gap-1.5">
+            <!-- Botão de Ajuda / Guia do Aventureiro (?) -->
+            <button @click="openTutorial()"
+                    class="relative p-2 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center text-stone-400 hover:text-[#fbbf24] hover:bg-stone-800/60 border border-transparent"
+                    title="Guia do Aventureiro (Ajuda / Introdução)">
+                <i class="fas fa-circle-question text-lg"></i>
+                <template x-if="!state.tutorial?.completed && !state.tutorial?.skipped">
+                    <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 shadow-sm shadow-amber-300 animate-ping"></span>
+                </template>
+            </button>
+
             <!-- Botão do Pergaminho / Histórico de Crônicas -->
             <button @click="combatLogOpen = !combatLogOpen"
                     class="relative p-2 rounded-lg transition-all duration-200 cursor-pointer flex items-center justify-center"
@@ -1161,18 +1171,159 @@
                         </div>
                     </template>
 
-                    <!-- SE ESPECIALIZAÇÃO JÁ ATIVA: BOTAO DE REDEFINIR E DETALHES -->
+                    <!-- SE ESPECIALIZAÇÃO JÁ ATIVA: CLASSE + PONTOS DE ÁRVORE + ACESSO À ÁRVORE -->
                     <template x-if="state.hero.specialization">
-                        <div class="bg-stone-950 p-2.5 rounded border border-stone-800 flex items-center justify-between text-xs">
-                            <div class="flex items-center gap-2">
-                                <i class="fas" :class="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.icon" :style="`color: ${CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.color}`"></i>
-                                <span class="text-stone-300 font-bold" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name"></span>
-                                <span class="text-stone-500 text-[10px]" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.desc"></span>
+                        <div class="space-y-2">
+                            <div class="bg-stone-950 p-2.5 rounded border border-stone-800 flex items-center justify-between text-xs">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas" :class="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.icon" :style="`color: ${CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.color}`"></i>
+                                    <span class="text-stone-300 font-bold" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name"></span>
+                                    <span class="text-stone-500 text-[10px]" x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.desc"></span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <!-- Indicador de Pontos de Árvore -->
+                                    <span class="flex items-center gap-1 text-[10px]"
+                                          :class="(state.hero.treePoints || 0) > 0 ? 'text-emerald-400 font-bold animate-pulse' : 'text-stone-500'">
+                                        <i class="fas fa-tree text-[8px]"></i>
+                                        <span x-text="(state.hero.treePoints || 0)"></span> pts
+                                    </span>
+                                    <button @click="skillTreeOpen = true"
+                                            class="text-[10px] bg-emerald-900/60 hover:bg-emerald-800/80 border border-emerald-700/50 text-emerald-300 font-bold px-2 py-1 rounded cursor-pointer transition-colors">
+                                        🌳 Árvore
+                                    </button>
+                                </div>
                             </div>
-                            <span class="text-xs text-stone-500 italic" title="A Especialização só pode ser alterada na próxima Ascensão.">🔒 Permanente até Ascender</span>
                         </div>
                     </template>
                 </div>
+
+                <!-- ══════════════════════════════════════════════════════════════════ -->
+                <!-- MODAL — ÁRVORE DE HABILIDADES                                     -->
+                <!-- ══════════════════════════════════════════════════════════════════ -->
+                <template x-if="skillTreeOpen">
+                    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[120] flex items-center justify-center p-4" @click.self="skillTreeOpen = false">
+                        <div class="bg-stone-900 border border-stone-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+
+                            <!-- Header do Modal -->
+                            <div class="flex items-center justify-between p-4 border-b border-stone-800 shrink-0">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-tree text-emerald-400 text-xl"></i>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-white medieval-font">Árvore de Habilidades</h3>
+                                        <p class="text-[10px] text-stone-400"
+                                           x-text="CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.name + ' · ' + (state.hero.treePoints || 0) + ' pontos disponíveis'"></p>
+                                    </div>
+                                </div>
+                                <button @click="skillTreeOpen = false" class="text-stone-500 hover:text-stone-200 cursor-pointer p-1">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <!-- Abas de Ramo -->
+                            <div class="flex border-b border-stone-800 shrink-0">
+                                <template x-for="branch in [{id:'active',label:'⚔️ Ativas'},{id:'passive',label:'🛡️ Passivas'},{id:'utility',label:'⚙️ Utilidade'}]" :key="branch.id">
+                                    <button @click="skillTreeBranch = branch.id"
+                                            :class="skillTreeBranch === branch.id
+                                                ? 'border-b-2 border-emerald-400 text-emerald-300 font-bold'
+                                                : 'text-stone-500 hover:text-stone-300'"
+                                            class="flex-1 py-2.5 text-xs transition-colors cursor-pointer"
+                                            x-text="branch.label">
+                                    </button>
+                                </template>
+                            </div>
+
+                            <!-- Conteúdo: Lista de Nós -->
+                            <div class="overflow-y-auto flex-1 p-4 space-y-3">
+                                <template x-for="node in getTreeNodes(skillTreeBranch)" :key="node.id">
+                                    <div class="rounded-xl border p-3 transition-all"
+                                         :class="{
+                                            'border-emerald-600/50 bg-emerald-950/30': isTreeNodeAvailable(node) && getTreeNodeLevel(node.id) < node.maxLevel,
+                                            'border-amber-500/60 bg-amber-950/20': getTreeNodeLevel(node.id) >= node.maxLevel,
+                                            'border-stone-800 bg-stone-900/50 opacity-50': !isTreeNodeAvailable(node)
+                                         }">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <!-- Ícone + Info -->
+                                            <div class="flex items-start gap-3 flex-1 min-w-0">
+                                                <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 border"
+                                                     :style="`background: ${node.color}22; border-color: ${node.color}55`">
+                                                    <i class="fas text-sm" :class="node.icon" :style="`color: ${node.color}`"></i>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="flex items-center gap-1.5 flex-wrap">
+                                                        <span class="text-xs font-bold text-stone-200" x-text="node.name"></span>
+                                                        <!-- Nível -->
+                                                        <span class="text-[10px] px-1.5 py-0.5 rounded font-mono"
+                                                              :class="getTreeNodeLevel(node.id) >= node.maxLevel
+                                                                  ? 'bg-amber-900/50 text-amber-400 border border-amber-700/50'
+                                                                  : 'bg-stone-800 text-stone-400'"
+                                                              x-text="getTreeNodeLevel(node.id) >= node.maxLevel ? 'MAX' : `Nv. ${getTreeNodeLevel(node.id)}/${node.maxLevel}`">
+                                                        </span>
+                                                        <!-- Badge de requisito não atendido -->
+                                                        <template x-if="!isTreeNodeAvailable(node)">
+                                                            <span class="text-[9px] text-red-400 bg-red-950/40 border border-red-800/40 px-1 py-0.5 rounded">🔒 Requer pré-requisito</span>
+                                                        </template>
+                                                    </div>
+                                                    <!-- Descrição do efeito atual ou do próximo nível -->
+                                                    <p class="text-[10px] text-stone-400 mt-0.5 leading-snug"
+                                                       x-text="node.descFn(Math.max(1, getTreeNodeLevel(node.id)))"></p>
+                                                    <!-- Requisito -->
+                                                    <template x-if="node.requires">
+                                                        <p class="text-[9px] text-stone-600 mt-0.5"
+                                                           x-text="'Req: ' + (SKILL_TREE[state.hero.specialization]?.nodes.find(n=>n.id===node.requires)?.name || node.requires)"></p>
+                                                    </template>
+                                                </div>
+                                            </div>
+
+                                            <!-- Botão de Compra -->
+                                            <div class="shrink-0 flex flex-col items-end gap-1">
+                                                <template x-if="getTreeNodeLevel(node.id) < node.maxLevel">
+                                                    <button @click="buyTreeNode(node.id)"
+                                                            :disabled="!isTreeNodeAvailable(node) || (state.hero.treePoints || 0) < (node.costPerLevel || 1)"
+                                                            :class="isTreeNodeAvailable(node) && (state.hero.treePoints || 0) >= (node.costPerLevel || 1)
+                                                                ? 'bg-emerald-700 hover:bg-emerald-600 border-emerald-500 text-white cursor-pointer'
+                                                                : 'bg-stone-800 border-stone-700 text-stone-500 cursor-not-allowed opacity-50'"
+                                                            class="text-[10px] font-bold px-2.5 py-1.5 rounded border transition-colors">
+                                                        +1 <i class="fas fa-tree text-[8px] ml-0.5"></i>
+                                                    </button>
+                                                </template>
+                                                <template x-if="getTreeNodeLevel(node.id) >= node.maxLevel">
+                                                    <span class="text-[10px] text-amber-400 font-bold px-2 py-1.5">✓ MAX</span>
+                                                </template>
+                                                <!-- Barra de progresso do nó -->
+                                                <div class="w-16 h-1 bg-stone-800 rounded-full overflow-hidden">
+                                                    <div class="h-full rounded-full transition-all"
+                                                         :class="getTreeNodeLevel(node.id) >= node.maxLevel ? 'bg-amber-500' : 'bg-emerald-500'"
+                                                         :style="`width: ${(getTreeNodeLevel(node.id)/node.maxLevel)*100}%`"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <!-- Empty state quando sem nós no ramo -->
+                                <template x-if="getTreeNodes(skillTreeBranch).length === 0">
+                                    <div class="text-center text-stone-500 text-xs py-8">
+                                        <i class="fas fa-tree text-3xl mb-2 opacity-30"></i>
+                                        <p>Nenhuma habilidade disponível neste ramo.</p>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Footer: pontos restantes -->
+                            <div class="border-t border-stone-800 p-3 shrink-0 flex items-center justify-between">
+                                <span class="text-xs text-stone-400">
+                                    Pontos disponíveis:
+                                    <strong class="text-emerald-400 font-mono" x-text="state.hero.treePoints || 0"></strong>
+                                </span>
+                                <button @click="skillTreeOpen = false"
+                                        class="bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold px-4 py-1.5 rounded border border-stone-600 transition-colors cursor-pointer">
+                                    Fechar
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </template>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Equipamentos e Atributos -->
@@ -1447,7 +1598,6 @@
                             </div>
                         </template>
                     </div>
-                    <p class="text-[10px] text-stone-600 mt-3 text-center">+2 pontos por level up (+2 bônus a cada 10 níveis) &middot; Defesa concede +3 Def e +3 HP</p>
                 </div>
             </div>
 
@@ -1523,15 +1673,23 @@
                     <div x-show="state.hero.isDead" style="display:none;" class="absolute inset-0 bg-black/90 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-10 text-center">
                         <i class="fas fa-skull text-4xl text-red-500 mb-2 animate-bounce"></i>
                         <h2 class="text-2xl text-red-500 medieval-font mb-1 tracking-wider">DERROTADO EM COMBATE</h2>
-                        <p class="text-xs text-stone-300 mb-3">Recuperando vida: <span class="text-[#fbbf24] font-bold" x-text="`${respawnPercent}%`"></span></p>
+                        <p class="text-xs text-stone-300 mb-2">Recuperando vida: <span class="text-[#fbbf24] font-bold" x-text="`${respawnPercent}%`"></span> <span class="text-stone-400 text-[11px]">(Retorno disponível a partir de 50%)</span></p>
                         
-                        <div class="w-48 bg-stone-900 h-2 rounded overflow-hidden border border-stone-700 mb-4">
-                            <div class="bg-red-600 h-full transition-all duration-200" :style="`width: ${respawnPercent}%`"></div>
+                        <div class="w-56 bg-stone-900 h-2.5 rounded-full overflow-hidden border border-stone-700 mb-4 relative">
+                            <div class="bg-gradient-to-r from-red-600 to-amber-500 h-full transition-all duration-200" :style="`width: ${respawnPercent}%`"></div>
+                            <!-- Marcador de 50% de HP -->
+                            <div class="absolute top-0 bottom-0 left-1/2 w-0.5 bg-yellow-300/80 -translate-x-1/2 z-10" title="50% - Pronto para Batalha"></div>
                         </div>
 
-                        <div class="flex justify-center">
-                            <button @click="retreatFromDefeat()" class="bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-600 text-xs font-bold py-2 px-4 rounded shadow cursor-pointer transition-colors flex items-center gap-2">
+                        <div class="flex flex-wrap items-center justify-center gap-2">
+                            <button @click="retreatFromDefeat()" class="bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-600 text-xs font-bold py-2 px-3.5 rounded shadow cursor-pointer transition-colors flex items-center gap-1.5">
                                 <i class="fas fa-person-running text-amber-400"></i> Recuar para a Cidade
+                            </button>
+                            <button @click="reviveAndReturnToBattle()"
+                                    :disabled="respawnPercent < 50"
+                                    class="bg-gradient-to-r from-red-700 to-amber-600 hover:from-red-600 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold py-2 px-3.5 rounded shadow cursor-pointer transition-all flex items-center gap-1.5">
+                                <i class="fas fa-swords"></i>
+                                <span x-text="respawnPercent >= 50 ? 'Retornar à Batalha' : 'Retornar (50% HP)'"></span>
                             </button>
                         </div>
                     </div>
@@ -1700,11 +1858,16 @@
                             <div class="bg-red-950/80 border border-red-700 text-red-300 p-3 rounded-lg text-xs flex flex-col sm:flex-row items-center justify-between gap-2 shadow">
                                 <div class="flex items-center gap-2">
                                     <i class="fas fa-skull text-red-400 animate-bounce"></i>
-                                    <span>Herói abatido! Recuperando vida na Cidade: <strong class="text-amber-300" x-text="`${respawnPercent}%`"></strong></span>
+                                    <span>Herói abatido! Recuperando vida: <strong class="text-amber-300" x-text="`${respawnPercent}%`"></strong> (retorno disponível a partir de 50%)</span>
                                 </div>
-                                <button @click="switchTab('city')" class="bg-stone-900 hover:bg-stone-800 border border-stone-700 px-3 py-1 rounded text-xs text-white font-bold cursor-pointer transition-colors">
-                                    Descansar na Cidade
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button x-show="respawnPercent >= 50" @click="reviveHero()" class="bg-amber-600 hover:bg-amber-500 px-3 py-1 rounded text-xs text-white font-bold cursor-pointer transition-colors">
+                                        Pronto para Batalha!
+                                    </button>
+                                    <button @click="switchTab('city')" class="bg-stone-900 hover:bg-stone-800 border border-stone-700 px-3 py-1 rounded text-xs text-white font-bold cursor-pointer transition-colors">
+                                        Descansar na Cidade
+                                    </button>
+                                </div>
                             </div>
                         </template>
 
@@ -1719,7 +1882,7 @@
 
                         <!-- Botão de Iniciar Combate na Torre -->
                         <button @click="startTowerFloor(selectedTowerFloor)"
-                                :disabled="state.hero.isDead || (state.hero.hp || 0) <= 0"
+                                :disabled="(state.hero.isDead && respawnPercent < 50) || (state.hero.hp || 0) <= 0"
                                 class="w-full py-3.5 bg-gradient-to-r from-purple-700 via-indigo-600 to-purple-700 hover:from-purple-600 hover:to-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl border-2 border-purple-400 shadow-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer text-sm uppercase tracking-wider hover:scale-[1.01]">
                             <i class="fas fa-swords text-lg"></i>
                             <span>Desafiar o Andar <strong x-text="selectedTowerFloor"></strong> da Torre</span>
@@ -1903,7 +2066,7 @@
 
                         <div class="flex flex-wrap justify-center gap-3">
                             <button @click="startTowerFloor((state.tower.floor || 1) + 1)"
-                                    :disabled="(state.tower.floor || 1) >= 100 || state.hero.isDead || (state.hero.hp || 0) <= 0"
+                                    :disabled="(state.tower.floor || 1) >= 100 || (state.hero.isDead && respawnPercent < 50) || (state.hero.hp || 0) <= 0"
                                     class="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2 cursor-pointer text-xs uppercase tracking-wider">
                                 <i class="fas fa-arrow-up"></i>
                                 <span>Avançar para o Andar <strong x-text="(state.tower.floor || 1) + 1"></strong></span>
@@ -3107,9 +3270,8 @@
                                     class="py-2 px-1 text-[10px] font-bold rounded border bg-stone-900 border-stone-800 text-stone-500 hover:bg-stone-850 hover:text-stone-400 transition-colors flex items-center justify-center gap-1 cursor-pointer">
                                 <span>🇪🇸</span> ES
                             </button>
-                            <button @click="switchLang('en')"
-                                    :class="language === 'en' ? 'bg-amber-950/40 border-[#fbbf24] text-white' : 'bg-stone-900 border-stone-800 text-stone-500 hover:text-stone-400'"
-                                    class="py-2 px-1 text-[10px] font-bold rounded border transition-colors flex items-center justify-center gap-1 cursor-pointer">
+                            <button @click="showNotification('English language will be available soon! 🇺🇸')"
+                                    class="py-2 px-1 text-[10px] font-bold rounded border bg-stone-900 border-stone-800 text-stone-500 hover:bg-stone-850 hover:text-stone-400 transition-colors flex items-center justify-center gap-1 cursor-pointer">
                                 <span>🇺🇸</span> EN
                             </button>
                         </div>
@@ -3218,6 +3380,243 @@
             <!-- Rodapé com nota idle -->
             <div class="text-[10px] text-stone-400 text-center bg-black/40 p-2 rounded-lg border border-stone-850">
                 🛡️ Combate autônomo ativo na muralha &middot; Seu progresso na Exploração está pausado em segurança.
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- GUIA DO AVENTUREIRO (MODAL DE INTRODUÇÃO)  -->
+    <!-- ========================================== -->
+    <div x-show="tutorialModalOpen"
+         style="display:none;"
+         class="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-md">
+        
+        <div class="bg-gradient-to-b from-[#1c1917] via-[#141210] to-[#0c0a09] border-2 border-amber-600/70 rounded-2xl max-w-2xl w-full shadow-2xl shadow-amber-950/60 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up"
+             @click.away="state.tutorial?.completed || state.tutorial?.skipped ? closeTutorial() : requestSkipTutorial()">
+            
+            <!-- Cabeçalho do Guia -->
+            <div class="px-5 py-3.5 border-b border-amber-900/40 bg-black/40 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-amber-950/70 border border-amber-500/50 flex items-center justify-center text-[#fbbf24]">
+                        <i class="fas" :class="TUTORIAL_STEPS[tutorialStep]?.icon || 'fa-scroll'"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs sm:text-sm font-black medieval-font text-white tracking-wide">GUIA DO AVENTUREIRO</span>
+                            <span class="bg-amber-950/90 border border-amber-600/50 text-[#fbbf24] px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                  x-text="TUTORIAL_STEPS[tutorialStep]?.badge"></span>
+                        </div>
+                        <p class="text-[10px] text-stone-400">Passo <strong class="text-amber-400" x-text="tutorialStep + 1"></strong> de <strong class="text-stone-300" x-text="TUTORIAL_STEPS.length"></strong> &middot; Introdução a Idleton</p>
+                    </div>
+                </div>
+
+                <!-- Botão Fechar / Pular -->
+                <button @click="state.tutorial?.completed || state.tutorial?.skipped ? closeTutorial() : requestSkipTutorial()"
+                        class="text-stone-400 hover:text-white p-1.5 rounded-lg hover:bg-stone-800 transition-colors cursor-pointer"
+                        :title="state.tutorial?.completed || state.tutorial?.skipped ? 'Fechar' : 'Pular Introdução'">
+                    <i class="fas fa-times text-base"></i>
+                </button>
+            </div>
+
+            <!-- Navegador de Passos (Pills / Indicadores) -->
+            <div class="px-4 py-2 border-b border-stone-850 bg-stone-950/60 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar shrink-0">
+                <template x-for="(step, index) in TUTORIAL_STEPS" :key="step.id">
+                    <button @click="setTutorialStep(index)"
+                            class="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold transition-all shrink-0 cursor-pointer"
+                            :class="tutorialStep === index 
+                                ? 'bg-amber-500 text-stone-950 shadow-md shadow-amber-500/40 scale-105' 
+                                : (index < tutorialStep ? 'bg-stone-900 border border-amber-900/40 text-amber-300/80 hover:bg-stone-850' : 'bg-stone-900 border border-stone-800 text-stone-500 hover:text-stone-300')">
+                        <i class="fas" :class="step.icon"></i>
+                        <span class="hidden sm:inline" x-text="index + 1"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Corpo com Conteúdo do Passo Ativo (Scrollável) -->
+            <div class="p-5 overflow-y-auto custom-scroll space-y-4 flex-1">
+                <!-- Banner do Passo -->
+                <div class="flex items-start gap-4 bg-stone-900/60 p-4 rounded-xl border border-stone-800">
+                    <div class="w-12 h-12 rounded-xl bg-amber-950/60 border border-amber-600/40 flex items-center justify-center shrink-0 text-2xl shadow-inner"
+                         :class="TUTORIAL_STEPS[tutorialStep]?.iconColor || 'text-amber-400'">
+                        <i class="fas" :class="TUTORIAL_STEPS[tutorialStep]?.icon"></i>
+                    </div>
+                    <div class="space-y-1">
+                        <h4 class="text-base font-bold text-white medieval-font" x-text="TUTORIAL_STEPS[tutorialStep]?.title"></h4>
+                        <p class="text-xs text-stone-300 leading-relaxed" x-text="TUTORIAL_STEPS[tutorialStep]?.desc"></p>
+                    </div>
+                </div>
+
+                <!-- Lista de Destaques / Funcionalidades do Passo -->
+                <template x-if="!TUTORIAL_STEPS[tutorialStep]?.isFinalStep && TUTORIAL_STEPS[tutorialStep]?.highlights">
+                    <div class="space-y-2.5">
+                        <template x-for="hl in TUTORIAL_STEPS[tutorialStep].highlights" :key="hl.title">
+                            <div class="bg-stone-950/80 p-3.5 rounded-xl border border-stone-800/80 hover:border-amber-900/40 transition-colors flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-lg bg-stone-900 border border-stone-750 flex items-center justify-center shrink-0 text-sm"
+                                     :class="hl.color || 'text-amber-400'">
+                                    <i class="fas" :class="hl.icon"></i>
+                                </div>
+                                <div class="space-y-0.5">
+                                    <span class="text-xs font-bold text-amber-200" x-text="hl.title"></span>
+                                    <p class="text-[11px] text-stone-400 leading-relaxed" x-text="hl.text"></p>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Passo Final: Recompensa Inicial de Aventureiro -->
+                <template x-if="TUTORIAL_STEPS[tutorialStep]?.isFinalStep">
+                    <div class="space-y-4">
+                        <div class="bg-gradient-to-r from-amber-950/50 via-stone-900/90 to-amber-950/50 p-4 rounded-xl border-2 border-amber-500/60 shadow-lg text-center space-y-3">
+                            <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-amber-500/20 border border-amber-400 text-amber-400 text-2xl shadow-md">
+                                <i class="fas fa-gift"></i>
+                            </div>
+                            <div>
+                                <h5 class="text-sm font-bold text-amber-300 uppercase tracking-wider">Baú de Boas-Vindas do Aventureiro</h5>
+                                <p class="text-[11px] text-stone-400">Recursos concedidos exclusivamente por concluir a introdução:</p>
+                            </div>
+
+                            <!-- Grid de Recursos Concedidos -->
+                            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1">
+                                <div class="bg-stone-950 p-2 rounded-lg border border-amber-900/50 flex flex-col items-center">
+                                    <span class="text-base text-[#ffd700]"><i class="fas fa-coins"></i></span>
+                                    <strong class="text-xs text-white mt-1">+500</strong>
+                                    <span class="text-[9px] text-stone-400 uppercase">Ouro</span>
+                                </div>
+                                <div class="bg-stone-950 p-2 rounded-lg border border-cyan-900/50 flex flex-col items-center">
+                                    <span class="text-base text-cyan-400"><i class="fas fa-gem"></i></span>
+                                    <strong class="text-xs text-white mt-1">+15</strong>
+                                    <span class="text-[9px] text-stone-400 uppercase">Diamantes</span>
+                                </div>
+                                <div class="bg-stone-950 p-2 rounded-lg border border-stone-700/50 flex flex-col items-center">
+                                    <span class="text-base text-stone-300"><i class="fas fa-cogs"></i></span>
+                                    <strong class="text-xs text-white mt-1">+50</strong>
+                                    <span class="text-[9px] text-stone-400 uppercase">Sucata</span>
+                                </div>
+                                <div class="bg-stone-950 p-2 rounded-lg border border-emerald-900/50 flex flex-col items-center">
+                                    <span class="text-base text-emerald-400"><i class="fas fa-tree"></i></span>
+                                    <strong class="text-xs text-white mt-1">+50</strong>
+                                    <span class="text-[9px] text-stone-400 uppercase">Madeira</span>
+                                </div>
+                                <div class="bg-stone-950 p-2 rounded-lg border border-slate-700/50 flex flex-col items-center col-span-2 sm:col-span-1">
+                                    <span class="text-base text-slate-300"><i class="fas fa-cubes-stacked"></i></span>
+                                    <strong class="text-xs text-white mt-1">+25</strong>
+                                    <span class="text-[9px] text-stone-400 uppercase">Ferro</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Botão de Ação: Resgatar ou Fechar -->
+                        <div x-show="!state.tutorial?.rewardClaimed">
+                            <button @click="claimTutorialReward()"
+                                    class="w-full py-3 px-5 rounded-xl bg-gradient-to-r from-amber-600 via-amber-500 to-yellow-400 hover:from-amber-500 hover:to-yellow-300 text-stone-950 font-black text-xs sm:text-sm tracking-wide shadow-xl shadow-amber-600/30 hover:scale-[1.01] transition-all flex items-center justify-center gap-2 cursor-pointer">
+                                <i class="fas fa-gift text-base"></i>
+                                <span>Resgatar Recompensa & Iniciar Aventura!</span>
+                            </button>
+                        </div>
+                        <div x-show="state.tutorial?.rewardClaimed" class="space-y-2">
+                            <div class="text-center py-2 px-3 bg-emerald-950/50 border border-emerald-700/50 rounded-lg text-emerald-300 text-xs font-bold flex items-center justify-center gap-2">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Recompensa de Introdução já resgatada com sucesso!</span>
+                            </div>
+                            <button @click="closeTutorial()"
+                                    class="w-full py-2.5 px-4 rounded-xl bg-stone-850 hover:bg-stone-800 border border-stone-700 text-white font-bold text-xs transition-all cursor-pointer">
+                                Fechar Guia
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Rodapé / Barra de Navegação -->
+            <div class="px-5 py-3 border-t border-stone-850 bg-black/50 flex items-center justify-between shrink-0">
+                <!-- Botão Pular Introdução -->
+                <div>
+                    <template x-if="!state.tutorial?.completed && !state.tutorial?.skipped">
+                        <button @click="requestSkipTutorial()"
+                                class="text-[11px] text-stone-500 hover:text-red-400 flex items-center gap-1.5 transition-colors cursor-pointer py-1 px-2 rounded hover:bg-red-950/20">
+                            <i class="fas fa-forward"></i>
+                            <span>Pular Introdução</span>
+                        </button>
+                    </template>
+                    <template x-if="state.tutorial?.completed || state.tutorial?.skipped">
+                        <button @click="closeTutorial()"
+                                class="text-[11px] text-stone-400 hover:text-stone-200 py-1 px-2 rounded hover:bg-stone-800 transition-colors cursor-pointer">
+                            Fechar
+                        </button>
+                    </template>
+                </div>
+
+                <!-- Controles Anterior / Próximo -->
+                <div class="flex items-center gap-2">
+                    <button @click="prevTutorialStep()"
+                            :disabled="tutorialStep === 0"
+                            class="py-1.5 px-3 rounded-lg border text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed bg-stone-900 border-stone-800 hover:bg-stone-800 text-stone-300 flex items-center gap-1.5 cursor-pointer">
+                        <i class="fas fa-arrow-left text-[10px]"></i>
+                        <span>Anterior</span>
+                    </button>
+
+                    <button @click="nextTutorialStep()"
+                            x-show="tutorialStep < TUTORIAL_STEPS.length - 1"
+                            class="py-1.5 px-4 rounded-lg bg-amber-500 hover:bg-amber-400 border border-amber-300 text-stone-950 font-bold text-xs transition-all flex items-center gap-1.5 shadow-md shadow-amber-950/50 cursor-pointer">
+                        <span>Próximo</span>
+                        <i class="fas fa-arrow-right text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL DE CONFIRMAÇÃO: PULAR INTRODUÇÃO     -->
+    <!-- ========================================== -->
+    <div x-show="tutorialConfirmSkipOpen"
+         style="display:none;"
+         class="fixed inset-0 bg-black/90 z-60 flex items-center justify-center p-4 backdrop-blur-sm">
+        
+        <div class="bg-gradient-to-b from-stone-900 via-stone-950 to-red-950/50 border-2 border-red-600/80 rounded-2xl max-w-md w-full p-5 shadow-2xl shadow-red-950/70 space-y-4 animate-scale-up">
+            <!-- Header do Aviso -->
+            <div class="flex items-center gap-3 border-b border-red-900/60 pb-3">
+                <div class="w-10 h-10 rounded-xl bg-red-950/80 border border-red-500 flex items-center justify-center text-red-400 text-xl shrink-0">
+                    <i class="fas fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <h4 class="text-sm font-black text-white medieval-font tracking-wide">PULAR O GUIA DO AVENTUREIRO?</h4>
+                    <p class="text-[10px] text-red-300">Aviso importante para novatos</p>
+                </div>
+            </div>
+
+            <!-- Mensagem de Alerta -->
+            <div class="bg-stone-950/80 p-3.5 rounded-xl border border-stone-800 space-y-2 text-xs text-stone-300 leading-relaxed">
+                <p>
+                    Tem certeza de que deseja pular a introdução?
+                </p>
+                <div class="p-2.5 rounded-lg bg-red-950/30 border border-red-900/50 text-red-200 text-[11px] space-y-1">
+                    <p class="font-bold flex items-center gap-1.5 text-red-400">
+                        <i class="fas fa-circle-exclamation"></i> O que você perderá ao pular:
+                    </p>
+                    <ul class="list-disc list-inside space-y-0.5 text-stone-300 pl-1">
+                        <li>Explicação detalhada dos prédios e mecânicas da Vila.</li>
+                        <li>Dicas táticas de combate, atributos e auto-loot.</li>
+                        <li><strong class="text-amber-300">A Recompensa Inicial de 500 Ouro, 15 Diamantes e Recursos</strong> concedida ao final.</li>
+                    </ul>
+                </div>
+                <p class="text-[10px] text-stone-400">
+                    <em>Nota: Você poderá reabrir o guia a qualquer momento clicando no botão <strong class="text-[#fbbf24]">[?]</strong> no topo da tela.</em>
+                </p>
+            </div>
+
+            <!-- Botões de Decisão -->
+            <div class="space-y-2 pt-1">
+                <button @click="cancelSkipTutorial()"
+                        class="w-full py-2.5 px-4 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-bold rounded-xl text-xs transition-all shadow-md shadow-amber-900/40 cursor-pointer flex items-center justify-center gap-1.5">
+                    <i class="fas fa-book-open"></i>
+                    <span>Continuar Guia (Garantir Recompensa)</span>
+                </button>
+                <button @click="confirmSkipTutorial()"
+                        class="w-full py-2 px-3 bg-stone-900 hover:bg-red-950/50 border border-stone-800 hover:border-red-800 text-stone-400 hover:text-red-300 font-bold rounded-xl text-xs transition-all cursor-pointer">
+                    Sim, Pular sem Recompensa
+                </button>
             </div>
         </div>
     </div>

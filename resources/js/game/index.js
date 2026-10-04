@@ -23,8 +23,8 @@ import {
     AUTO_LOOT_ACTIONS,
     SKILL_TREE,
     getTreeEffects,
-}                                                                 from './constants.js';
-import { defaultState }                                           from './state.js';
+} from './constants.js';
+import { defaultState } from './state.js';
 import {
     createMonster, processCombatTick, calcHeroDmg, calcKillRewards,
     calcActiveSetBonuses, startTowerRun, resolveTowerEventChoice, processTowerCombatTick,
@@ -35,7 +35,7 @@ import {
     renderCanvas, makeHeroDmgFloat, makeMonsterDmgFloat,
     makeSpecialFloat, makeHeroHealFloat, makeMonsterEffectFloat,
     setupCanvas as initStars, resizeCanvas,
-}                                                                 from './canvas.js';
+} from './canvas.js';
 import {
     getBuildingCost, buyBuilding, processBuildings,
     generateLoot, getUpgradeCost, upgradeItem,
@@ -48,25 +48,26 @@ import {
     startPetExpedition, claimPetExpedition, craftRelic,
     resolveSiegeVictory, resolveSiegeDefeat,
     getForgeCost, resetHeroStats, getStatResetCost,
-}                                                                 from './economy.js';
+} from './economy.js';
 import {
     createLogEntry, recalcDerived, getItemDelta,
     changeHeroName, buySkill, allocateStat,
     playTavernGame, loadGame, saveGame,
     buyTreeNode,
-}                                                                 from './ui.js';
+} from './ui.js';
 import {
     playSwordSlash, playCritSlash, playCoinClink,
     playItemDrop, playLevelUpFanfare, playDefeatTone,
     playSiegeAlert, playCoinFlip, playDiceRoll,
     playTavernWin, playTavernLose,
-}                                                                 from './audio.js';
+} from './audio.js';
 import {
     ensureQuests, trackQuestProgress, claimQuestReward,
-}                                                                 from './quests.js';
-import { t, setLang, getLang, getAvailableLangs, LANG_META }     from './lang/index.js';
-import { v, getLibraryAssetUrl, getLibraryIcon }                  from './visuals/index.js';
-import { calcXpForLevel, formatNumber, formatInt }                from './formulas.js';
+} from './quests.js';
+import { t, setLang, getLang, getAvailableLangs, LANG_META } from './lang/index.js';
+import { v, getLibraryAssetUrl, getLibraryIcon } from './visuals/index.js';
+import { calcXpForLevel, formatNumber, formatInt } from './formulas.js';
+import { TUTORIAL_STEPS, TUTORIAL_REWARD } from './tutorial.js';
 
 // ==========================================
 // ALPINE COMPONENT — gameData()
@@ -104,47 +105,53 @@ export function gameData() {
         formatInt,                 // Notação inteira abreviada
         currentRumor: TAVERN_RUMORS[Math.floor(Math.random() * TAVERN_RUMORS.length)],
         // --- Estado & UI ---
-        state:                JSON.parse(JSON.stringify(defaultState)),
-        menuOpen:             false,
-        settingsOpen:         false,
-        language:             getLang(),   // idioma ativo (sincronizado com o módulo i18n)
+        state: JSON.parse(JSON.stringify(defaultState)),
+        menuOpen: false,
+        settingsOpen: false,
+        language: getLang(),   // idioma ativo (sincronizado com o módulo i18n)
         LANG_META,                         // metadados p/ UI de seleção de idioma
-        activeTab:            'city',
-        cityPanel:            null,
-        blacksmithTab:        'upgrade',   // 'upgrade' | 'craft' | 'relics'
-        petTab:               'list',      // 'list' | 'expeditions'
+        activeTab: 'city',
+        cityPanel: null,
+        blacksmithTab: 'upgrade',   // 'upgrade' | 'craft' | 'relics'
+        petTab: 'list',      // 'list' | 'expeditions'
         selectedExpeditionZone: 'forest',
         selectedExpeditionPet: null,
         selectedExpeditionMinutes: 30,
-        selectedRelicId:      'relic_blade',
-        craftRecipeId:        'iron_basic',
-        craftSlot:            'weapon',
-        enchantSlot:          'weapon',
-        selectedEnchantId:    'fire',
+        selectedRelicId: 'relic_blade',
+        craftRecipeId: 'iron_basic',
+        craftSlot: 'weapon',
+        enchantSlot: 'weapon',
+        selectedEnchantId: 'fire',
         specializationModalOpen: false,
         selectedSpecializationId: 'berserker',
-        skillTreeOpen:        false,       // modal da Árvore de Habilidades
-        skillTreeBranch:      'active',    // aba ativa no painel: 'active'|'passive'|'utility'
-        warCryCooldownTimer:        0,     // novo ativo Berserker
-        holyBarrierCooldownTimer:   0,     // novo ativo Paladino
-        holyBarrierActiveTimer:     0,     // duração do escudo ativo
-        holyBarrierShieldHp:        0,     // HP atual do escudo
-        arcaneNovaCooldownTimer:    0,     // novo ativo Mago
-        doubleStrikeCooldownTimer:  0,     // novo ativo Ladrão
-        towerModalOpen:       false,
-        selectedTowerFloor:   1,
-        siegeModalOpen:       false,
-        statsExpanded:        false,
-        respawnPercent:       0,
-        globalNotification:   null,
-        selectedItemIndex:    null,
-        itemModalOpen:        false,
+        skillTreeOpen: false,       // modal da Árvore de Habilidades
+        skillTreeBranch: 'active',    // aba ativa no painel: 'active'|'passive'|'utility'
+        warCryCooldownTimer: 0,     // novo ativo Berserker
+        holyBarrierCooldownTimer: 0,     // novo ativo Paladino
+        holyBarrierActiveTimer: 0,     // duração do escudo ativo
+        holyBarrierShieldHp: 0,     // HP atual do escudo
+        arcaneNovaCooldownTimer: 0,     // novo ativo Mago
+        doubleStrikeCooldownTimer: 0,     // novo ativo Ladrão
+        towerModalOpen: false,
+        selectedTowerFloor: 1,
+        siegeModalOpen: false,
+        statsExpanded: false,
+        respawnPercent: 0,
+        globalNotification: null,
+        selectedItemIndex: null,
+        itemModalOpen: false,
         selectedEquippedSlot: null,
-        equippedModalOpen:    false,
-        defeatModalOpen:      false,
+        equippedModalOpen: false,
+        defeatModalOpen: false,
         pendingDropModalOpen: false,
-        selectedBestiaryMob:  null,
-        upgradeSlot:          null,
+        selectedBestiaryMob: null,
+        upgradeSlot: null,
+        // --- Guia do Aventureiro (Tutorial) ---
+        tutorialModalOpen: false,
+        tutorialConfirmSkipOpen: false,
+        tutorialStep: 0,
+        TUTORIAL_STEPS,
+        TUTORIAL_REWARD,
 
         // --- Taverna: estado de animação ---
         tavernAnim: {
@@ -161,55 +168,55 @@ export function gameData() {
         tavernHistory: [],       // últimos 10 resultados para histórico visual
 
         // --- UI local state ---
-        skillsExpanded:   false,
-        combatLogOpen:    false,
-        combatLogFilter:  'all', // 'all' | 'combat' | 'loot' | 'level'
+        skillsExpanded: false,
+        combatLogOpen: false,
+        combatLogFilter: 'all', // 'all' | 'combat' | 'loot' | 'level'
 
         // --- Canvas ---
-        canvas:              null,
-        ctx:                 null,
-        stars:               [],
-        floats:              [],
-        lastTick:            performance.now(),
-        heroAttacking:       false,
-        attackFlashMs:       0,
-        heroIsHit:           false,
-        heroHitMs:           0,
+        canvas: null,
+        ctx: null,
+        stars: [],
+        floats: [],
+        lastTick: performance.now(),
+        heroAttacking: false,
+        attackFlashMs: 0,
+        heroIsHit: false,
+        heroHitMs: 0,
         activeCooldownTimer: 0,  // cooldown do Ataque Concentrado
-        healCooldownTimer:   0,  // cooldown da Cura Espontânea
+        healCooldownTimer: 0,  // cooldown da Cura Espontânea
 
         // --- Config de stats visível no template ---
         statConfig: [
-            { key: 'str', name: 'Força',        icon: 'fa-dumbbell',       color: 'text-red-400',    tip: '+1 Dano Base' },
-            { key: 'def', name: 'Defesa',       icon: 'fa-shield',         color: 'text-blue-400',   tip: '+3 Defesa & +3 HP' },
-            { key: 'ene', name: 'Energia',      icon: 'fa-bolt',           color: 'text-amber-400',  tip: '+5 Máx & +0.5 Rec/s' },
-            { key: 'int', name: 'Inteligência',  icon: 'fa-brain',          color: 'text-purple-400', tip: '+5 Mana & +0.1 Rec/s' },
-            { key: 'agi', name: 'Agilidade',     icon: 'fa-person-running', color: 'text-yellow-400', tip: '+Velocidade Ataque' },
-            { key: 'lck', name: 'Sorte',         icon: 'fa-star',           color: 'text-green-400',  tip: '+Drop Rate' },
-            { key: 'per', name: 'Percepção',     icon: 'fa-eye',            color: 'text-cyan-400',   tip: '+Qualidade Loot' },
-            { key: 'reg', name: 'Regeneração',   icon: 'fa-heart',          color: 'text-pink-400',   tip: '+0.5 HP Regen/s' },
+            { key: 'str', name: 'Força', icon: 'fa-dumbbell', color: 'text-red-400', tip: '+1 Dano Base' },
+            { key: 'def', name: 'Defesa', icon: 'fa-shield', color: 'text-blue-400', tip: '+3 Defesa & +3 HP' },
+            { key: 'ene', name: 'Energia', icon: 'fa-bolt', color: 'text-amber-400', tip: '+5 Máx & +0.5 Rec/s' },
+            { key: 'int', name: 'Inteligência', icon: 'fa-brain', color: 'text-purple-400', tip: '+5 Mana & +0.1 Rec/s' },
+            { key: 'agi', name: 'Agilidade', icon: 'fa-person-running', color: 'text-yellow-400', tip: '+Velocidade Ataque' },
+            { key: 'lck', name: 'Sorte', icon: 'fa-star', color: 'text-green-400', tip: '+Drop Rate' },
+            { key: 'per', name: 'Percepção', icon: 'fa-eye', color: 'text-cyan-400', tip: '+Qualidade Loot' },
+            { key: 'reg', name: 'Regeneração', icon: 'fa-heart', color: 'text-pink-400', tip: '+0.5 HP Regen/s' },
         ],
 
         // --- Habilidades Ativas do GDD (para visualização no Grimório/Painel) ---
         activeSkills: [
             { id: 'focused_attack', name: 'Ataque Concentrado', icon: 'fa-bolt', cost: '30 ⚡ Energia', cd: 8, desc: 'Desfere um golpe devastador causando 3× do seu Dano Base.', unlocked: true },
-            { id: 'quick_heal',     name: 'Cura Espontânea',   icon: 'fa-hand-holding-medical', cost: '30 🧪 Mana', cd: 12, desc: 'Restaura 25% do seu HP Máximo instantaneamente.', unlocked: true },
-            { id: 'war_cry',        name: 'Grito de Guerra',   icon: 'fa-bullhorn', cost: '40 ⚡ Energia', cd: 25, desc: 'Aumenta seu Dano Base em +30% por 10s.', unlocked: false, reqLv: 5 },
-            { id: 'shield_barrier', name: 'Barreira Sagrada',  icon: 'fa-shield-halved', cost: '35 🧪 Mana', cd: 20, desc: 'Reduz todo o dano recebido em 50% por 6s.', unlocked: false, reqLv: 10 },
+            { id: 'quick_heal', name: 'Cura Espontânea', icon: 'fa-hand-holding-medical', cost: '30 🧪 Mana', cd: 12, desc: 'Restaura 25% do seu HP Máximo instantaneamente.', unlocked: true },
+            { id: 'war_cry', name: 'Grito de Guerra', icon: 'fa-bullhorn', cost: '40 ⚡ Energia', cd: 25, desc: 'Aumenta seu Dano Base em +30% por 10s.', unlocked: false, reqLv: 5 },
+            { id: 'shield_barrier', name: 'Barreira Sagrada', icon: 'fa-shield-halved', cost: '35 🧪 Mana', cd: 20, desc: 'Reduz todo o dano recebido em 50% por 6s.', unlocked: false, reqLv: 10 },
         ],
 
         // --- Dados constantes acessíveis no template ---
         MONSTER_TYPES,
         tabs: [
-            { id: 'city',        name: 'Cidade',             icon: 'fa-city'           },
-            { id: 'inventory',   name: 'Inventário',         icon: 'fa-briefcase'      },
-            { id: 'explore',     name: 'Exploração',         icon: 'fa-map-marked-alt' },
-            { id: 'tower',       name: 'Torre dos Desafios', icon: 'fa-monument'       },
-            { id: 'domain',      name: 'Domínio',            icon: 'fa-chess-rook'     },
-            { id: 'companions',  name: 'Companheiros',       icon: 'fa-paw'            },
-            { id: 'bestiary',    name: 'Bestiário',          icon: 'fa-dragon'         },
-            { id: 'stats',       name: 'Estatísticas',       icon: 'fa-chart-pie'      },
-            { id: 'ascension',   name: 'Ascensão',           icon: 'fa-star'           },
+            { id: 'city', name: 'Cidade', icon: 'fa-city' },
+            { id: 'inventory', name: 'Inventário', icon: 'fa-briefcase' },
+            { id: 'explore', name: 'Exploração', icon: 'fa-map-marked-alt' },
+            { id: 'tower', name: 'Torre dos Desafios', icon: 'fa-monument' },
+            { id: 'domain', name: 'Domínio', icon: 'fa-chess-rook' },
+            { id: 'companions', name: 'Companheiros', icon: 'fa-paw' },
+            { id: 'bestiary', name: 'Bestiário', icon: 'fa-dragon' },
+            { id: 'stats', name: 'Estatísticas', icon: 'fa-chart-pie' },
+            { id: 'ascension', name: 'Ascensão', icon: 'fa-star' },
         ],
 
         // ==========================================
@@ -217,10 +224,12 @@ export function gameData() {
         // ==========================================
 
         async initGame() {
-            // Restaura idioma salvo
-            const savedLang = localStorage.getItem('idleton_lang') || 'pt-br';
-            setLang(savedLang);
+            // Restaura idioma salvo (fallback para pt-br caso seja um idioma ainda em desenvolvimento)
+            const savedLang = localStorage.getItem('idleton_lang');
+            const initialLang = savedLang === 'pt-br' ? 'pt-br' : 'pt-br';
+            setLang(initialLang);
             this.language = getLang();
+            localStorage.setItem('idleton_lang', initialLang);
 
             const savedName = localStorage.getItem('idleton_hero_name') || 'Zé Ninguém';
             try {
@@ -262,15 +271,22 @@ export function gameData() {
             });
 
             this.addLog('Aventura iniciada!', 'narrative');
+
+            // Exibe a introdução para novatos (caso não tenha completado nem pulado)
+            if (!this.state.tutorial || (!this.state.tutorial.completed && !this.state.tutorial.skipped)) {
+                this.$nextTick(() => {
+                    this.openTutorial();
+                });
+            }
         },
 
         /** Migrações de save antigo para novo schema. */
         _migrateState(s) {
-            if (!s.logs)      s.logs      = [];
+            if (!s.logs) s.logs = [];
             if (!s.equipment) s.equipment = JSON.parse(JSON.stringify(defaultState.equipment));
             if (!s.inventory) s.inventory = [];
-            if (!s.bestiary)  s.bestiary  = {};
-            if (!s.skills)    s.skills    = JSON.parse(JSON.stringify(defaultState.skills));
+            if (!s.bestiary) s.bestiary = {};
+            if (!s.skills) s.skills = JSON.parse(JSON.stringify(defaultState.skills));
 
             // Garante nós de Pets e Quests
             if (!s.pets) {
@@ -312,7 +328,7 @@ export function gameData() {
             }
             // Atualiza prod/baseCost para valores atuais (rebalancamentos)
             for (const key in defaultState.buildings) {
-                s.buildings[key].prod    = defaultState.buildings[key].prod;
+                s.buildings[key].prod = defaultState.buildings[key].prod;
                 s.buildings[key].baseCost = defaultState.buildings[key].baseCost;
             }
 
@@ -322,13 +338,16 @@ export function gameData() {
                 delete s.resources.diamonds;
             }
             if (!s.resources.diamond && s.resources.diamond !== 0) s.resources.diamond = 0;
-            if (typeof s.maxZone === 'undefined')    s.maxZone    = s.zone || 1;
+            if (typeof s.maxZone === 'undefined') s.maxZone = s.zone || 1;
             if (typeof s.totalKills === 'undefined') s.totalKills = 0;
             if (typeof s.hero.statPoints === 'undefined') s.hero.statPoints = 0;
             if (typeof s.hero.energy === 'undefined' || s.hero.energy < 30) s.hero.energy = Math.max(s.hero.energy || 0, 30);
-            if (typeof s.hero.mana === 'undefined' || s.hero.mana < 30)     s.hero.mana   = Math.max(s.hero.mana || 0, 30);
+            if (typeof s.hero.mana === 'undefined' || s.hero.mana < 30) s.hero.mana = Math.max(s.hero.mana || 0, 30);
             if (typeof s.bossSafeMode === 'undefined') s.bossSafeMode = false;
-            if (typeof s.oracleBuff === 'undefined')   s.oracleBuff   = null;
+            if (!s.tutorial) {
+                s.tutorial = { completed: false, skipped: false, rewardClaimed: false };
+            }
+            if (typeof s.oracleBuff === 'undefined') s.oracleBuff = null;
             if (s.oracleBuff && s.oracleBuff.expiresAt && s.oracleBuff.expiresAt <= Date.now()) {
                 s.oracleBuff = null;
             }
@@ -493,7 +512,7 @@ export function gameData() {
             if (!this.floats) this.floats = [];
             let attempts = 0;
             while (attempts < 5) {
-                const colliding = this.floats.find(other => 
+                const colliding = this.floats.find(other =>
                     Math.abs(other.x - f.x) < 42 && Math.abs(other.y - f.y) < 24
                 );
                 if (!colliding) break;
@@ -512,8 +531,8 @@ export function gameData() {
             setTimeout(() => { this.globalNotification = null; }, 3000);
         },
 
-        toggleMenu()   { this.menuOpen = !this.menuOpen; },
-        switchTab(id)  {
+        toggleMenu() { this.menuOpen = !this.menuOpen; },
+        switchTab(id) {
             this.activeTab = id;
             if (window.innerWidth < 1024) this.menuOpen = false;
             if (id === 'explore') {
@@ -528,6 +547,10 @@ export function gameData() {
 
         // Troca idioma e persiste a preferência
         switchLang(lang) {
+            if (lang !== 'pt-br') {
+                this.showNotification(lang === 'en' ? 'English language will be available soon! 🇺🇸' : 'Idioma Español estará disponible pronto! 🇪🇸');
+                return;
+            }
             setLang(lang);
             this.language = getLang();
             localStorage.setItem('idleton_lang', lang);
@@ -535,6 +558,80 @@ export function gameData() {
 
         // Função de tradução exposta no template Alpine
         t(key, params) { return t(key, params); },
+
+        // ==========================================
+        // GUIA DO AVENTUREIRO (TUTORIAL & INTRODUÇÃO)
+        // ==========================================
+
+        openTutorial() {
+            this.tutorialStep = 0;
+            this.tutorialConfirmSkipOpen = false;
+            this.tutorialModalOpen = true;
+        },
+
+        closeTutorial() {
+            this.tutorialModalOpen = false;
+            this.tutorialConfirmSkipOpen = false;
+        },
+
+        nextTutorialStep() {
+            if (this.tutorialStep < this.TUTORIAL_STEPS.length - 1) {
+                this.tutorialStep++;
+            }
+        },
+
+        prevTutorialStep() {
+            if (this.tutorialStep > 0) {
+                this.tutorialStep--;
+            }
+        },
+
+        setTutorialStep(idx) {
+            if (idx >= 0 && idx < this.TUTORIAL_STEPS.length) {
+                this.tutorialStep = idx;
+            }
+        },
+
+        requestSkipTutorial() {
+            this.tutorialConfirmSkipOpen = true;
+        },
+
+        cancelSkipTutorial() {
+            this.tutorialConfirmSkipOpen = false;
+        },
+
+        confirmSkipTutorial() {
+            if (!this.state.tutorial) this.state.tutorial = {};
+            this.state.tutorial.skipped = true;
+            this.tutorialConfirmSkipOpen = false;
+            this.tutorialModalOpen = false;
+            this.saveGame();
+            this.showNotification('Introdução pulada. Você pode consultar o guia a qualquer momento no ícone [?] no topo!');
+        },
+
+        claimTutorialReward() {
+            if (!this.state.tutorial) this.state.tutorial = {};
+            if (this.state.tutorial.rewardClaimed) {
+                this.showNotification('Você já resgatou sua recompensa de introdução!');
+                this.closeTutorial();
+                return;
+            }
+
+            this.state.resources.gold = (this.state.resources.gold || 0) + this.TUTORIAL_REWARD.gold;
+            this.state.resources.diamond = (this.state.resources.diamond || 0) + this.TUTORIAL_REWARD.diamond;
+            this.state.resources.scrap = (this.state.resources.scrap || 0) + this.TUTORIAL_REWARD.scrap;
+            this.state.resources.wood = (this.state.resources.wood || 0) + this.TUTORIAL_REWARD.wood;
+            this.state.resources.iron = (this.state.resources.iron || 0) + this.TUTORIAL_REWARD.iron;
+
+            this.state.tutorial.completed = true;
+            this.state.tutorial.rewardClaimed = true;
+            this.state.tutorial.skipped = false;
+
+            if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+            this.showNotification('🎉 Guia concluído! 500 Ouro, 15 Diamantes e Recursos Iniciais recebidos!');
+            this.saveGame();
+            this.closeTutorial();
+        },
 
         // ==========================================
         // HERÓI
@@ -547,12 +644,12 @@ export function gameData() {
         },
 
         resetProgress() {
-            this.state         = JSON.parse(JSON.stringify(defaultState));
+            this.state = JSON.parse(JSON.stringify(defaultState));
             localStorage.setItem('idleton_hero_name', this.state.hero.name);
             this.recalcStats();
             this.saveGame();
             this.showNotification('Progresso resetado com sucesso!');
-            this.activeTab    = 'city';
+            this.activeTab = 'city';
             this.settingsOpen = false;
         },
 
@@ -573,15 +670,15 @@ export function gameData() {
         _checkLevelUp() {
             while (this.state.hero.xp >= this.state.hero.nextXp) {
                 this.state.hero.level++;
-                this.state.hero.xp      -= this.state.hero.nextXp;
-                this.state.hero.nextXp   = calcXpForLevel(this.state.hero.level);
-                this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 2;
+                this.state.hero.xp -= this.state.hero.nextXp;
+                this.state.hero.nextXp = calcXpForLevel(this.state.hero.level);
+                this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 1;
                 this.state.baseStats.hpMax += 10;
 
                 // Bônus de marco a cada 10 níveis (+2 pontos de atributo bônus)
                 if (this.state.hero.level % 10 === 0) {
-                    this.state.hero.statPoints += 2;
-                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +2 Pontos de Atributo Bônus!`, 'prestige');
+                    this.state.hero.statPoints += 1;
+                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +1 Ponto de Atributo Bônus!`, 'prestige');
                 }
 
                 this.recalcStats();
@@ -592,7 +689,7 @@ export function gameData() {
 
                 if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
 
-                this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+2 Pontos de Atributo) ✨`, 'level');
+                this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+1 Ponto de Atributo) ✨`, 'level');
                 this.showNotification(`LEVEL UP! Você alcançou o Nível ${this.state.hero.level}!`);
 
                 // Nível 10+: ganha +1 Ponto de Árvore por nível
@@ -600,11 +697,26 @@ export function gameData() {
                     this.state.hero.treePoints = (this.state.hero.treePoints || 0) + 1;
                 }
 
-                // Nível 10: Desbloqueio da Especialização de Classe
+                // Nível 10: Desbloqueio da Especialização de Classe e Árvore de Habilidades
                 if (this.state.hero.level === 10 && !this.state.hero.specialization) {
+                    // Pausa qualquer combate que estiver ocorrendo para decisão do jogador
+                    if (this.state.isExploring) {
+                        this.state.isExploring = false;
+                        if (this.state.monster) {
+                            this.state.monster.hp = this.state.monster.maxHp;
+                            this.state.monster.atkTimer = 0;
+                        }
+                    }
+                    if (this.state.tower?.inBattle) {
+                        this.state.tower.inBattle = false;
+                    }
+                    if (this.state.villageSiege?.inBattle) {
+                        this.state.villageSiege.inBattle = false;
+                    }
+
                     this.specializationModalOpen = true;
-                    this.addLog('🔮 Você alcançou o Nível 10! Escolha sua Especialização de Classe.', 'prestige');
-                    this.showNotification('Especialização de Classe Desbloqueada!');
+                    this.addLog('🔮 Nível 10 Alcançado! Combate pausado para escolha de Especialização e desbloqueio da Árvore de Habilidades.', 'prestige');
+                    this.showNotification('Nível 10! Escolha sua Especialização.');
                 }
             }
         },
@@ -633,7 +745,7 @@ export function gameData() {
                 this.recalcStats();
                 // Ajusta Energy/Mana se o max mudou
                 if (this.state.hero.energy > this.state.derived.energyMax) this.state.hero.energy = this.state.derived.energyMax;
-                if (this.state.hero.mana   > this.state.derived.manaMax)   this.state.hero.mana   = this.state.derived.manaMax;
+                if (this.state.hero.mana > this.state.derived.manaMax) this.state.hero.mana = this.state.derived.manaMax;
             } else if ((this.state.hero.statPoints || 0) <= 0) {
                 this.addLog('Nenhum ponto de atributo disponível.', 'danger');
             }
@@ -756,10 +868,17 @@ export function gameData() {
         // ==========================================
 
         toggleExploration() {
-            // Se o herói estiver morto, não pode iniciar exploração
+            // Se o herói estiver morto / se recuperando:
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) {
-                this.showNotification('Herói abatido! Aguarde a recuperação da vida.');
-                return;
+                const minHp = (this.state.derived?.hpMax || 100) * 0.5;
+                if ((this.state.hero.hp || 0) >= minHp) {
+                    this.state.hero.isDead = false;
+                    this.defeatModalOpen = false;
+                    this.addLog('Herói retornou à batalha com mais de 50% de vida!', 'narrative');
+                } else {
+                    this.showNotification('Herói muito ferido! Aguarde pelo menos 50% de vida para retornar.');
+                    return;
+                }
             }
 
             // Exclusividade mútua: se iniciar exploração, encerra combate ativo da torre
@@ -772,7 +891,7 @@ export function gameData() {
                 this.state.monster = createMonster(this.state.zone, this.state.killsInZone, this.state.bossSafeMode);
             } else if (!this.state.isExploring && this.state.monster) {
                 // Restaura HP do monstro ao pausar
-                this.state.monster.hp       = this.state.monster.maxHp;
+                this.state.monster.hp = this.state.monster.maxHp;
                 this.state.monster.atkTimer = 0;
             }
         },
@@ -797,8 +916,8 @@ export function gameData() {
 
         challengeBoss() {
             this.state.bossSafeMode = false;
-            this.state.killsInZone  = 9;
-            this.state.monster      = createMonster(this.state.zone, 9, false);
+            this.state.killsInZone = 9;
+            this.state.monster = createMonster(this.state.zone, 9, false);
             this.addLog(`⚔️ Desafiando o Chefe da Zona ${this.state.zone}!`, 'danger');
             this.showNotification('O Chefe da Zona apareceu!');
             this.saveGame();
@@ -808,9 +927,9 @@ export function gameData() {
             const nextZone = (this.state.zone || 1) + delta;
             const maxZ = this.state.maxZone || 1;
             if (nextZone < 1 || nextZone > maxZ) return;
-            this.state.zone        = nextZone;
+            this.state.zone = nextZone;
             this.state.killsInZone = 0;
-            this.state.monster     = createMonster(this.state.zone, 0, this.state.bossSafeMode);
+            this.state.monster = createMonster(this.state.zone, 0, this.state.bossSafeMode);
             this.addLog(`Viajou para a Zona ${this.state.zone}!`, 'narrative');
             this.showNotification(`Zona ${this.state.zone}`);
             this.saveGame();
@@ -829,7 +948,7 @@ export function gameData() {
             // Recompensas calculadas com bônus de Pets, Oráculo e Habilidades
             const { gold, xp } = calcKillRewards(m, this.state);
             this.state.resources.gold += gold;
-            this.state.hero.xp        += xp;
+            this.state.hero.xp += xp;
             this.state.killsInZone++;
 
             // Rastreia missão de ganho de ouro
@@ -888,7 +1007,7 @@ export function gameData() {
                     this.addLog(filtered.msg, 'loot');
                 } else if (lootResult.isOverflow) {
                     this.state.pendingDropItem = lootResult.item;
-                    this.pendingDropModalOpen  = true;
+                    this.pendingDropModalOpen = true;
                     this.addLog(`🎒 Mochila cheia! Novo drop [${lootResult.item.name}] aguarda sua decisão.`, 'danger');
                 } else {
                     this.state.inventory.push(lootResult);
@@ -1237,21 +1356,21 @@ export function gameData() {
             if (!buffDef) return;
 
             const prophecies = ORACLE_PROPHECIES[buffId] || [];
-            const prophecy   = prophecies[Math.floor(Math.random() * prophecies.length)] || "Os ventos sussurram glória ao seu destino.";
+            const prophecy = prophecies[Math.floor(Math.random() * prophecies.length)] || "Os ventos sussurram glória ao seu destino.";
 
             this.state.resources.gold -= cost;
             const durationSec = 900; // 15 minutos
 
             this.state.oracleBuff = {
-                type:        buffDef.id,
-                name:        buffDef.name,
-                icon:        buffDef.icon,
-                color:       buffDef.color,
-                multiplier:  buffDef.mult,
-                duration:    durationSec,
-                remaining:   durationSec,
-                expiresAt:   Date.now() + durationSec * 1000,
-                prophecy:    prophecy,
+                type: buffDef.id,
+                name: buffDef.name,
+                icon: buffDef.icon,
+                color: buffDef.color,
+                multiplier: buffDef.mult,
+                duration: durationSec,
+                remaining: durationSec,
+                expiresAt: Date.now() + durationSec * 1000,
+                prophecy: prophecy,
             };
 
             this.addLog(`🔮 O Oráculo profere: "${prophecy}"`, 'prestige');
@@ -1508,9 +1627,10 @@ export function gameData() {
             if (!spec) return;
             this.state.hero.specialization = specId;
             this.specializationModalOpen = false;
+            this.skillTreeOpen = true; // Abre imediatamente a Árvore para o jogador distribuir pontos
             this.recalcStats();
-            this.addLog(`🌟 Especialização Escolhida: ${spec.name} (${spec.role})!`, 'level');
-            this.showNotification(`Você agora é um ${spec.name}!`);
+            this.addLog(`🌟 Especialização Escolhida: ${spec.name} (${spec.role})! Árvore de Habilidades desbloqueada.`, 'level');
+            this.showNotification(`Você agora é um ${spec.name}! Árvore Desbloqueada.`);
             if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
             this.saveGame();
         },
@@ -1569,12 +1689,12 @@ export function gameData() {
             this.state.hero.energy -= 30;
             this.warCryCooldownTimer = 15;
             const reduction = lvl * 0.20;
-            if (this.state.monster)           this.state.monster.warCryReduction      = reduction;
-            if (this.state.tower?.monster)    this.state.tower.monster.warCryReduction = reduction;
-            this.addLog(`🧨 Brado de Guerra! Inimigo ataca ${(reduction*100).toFixed(0)}% mais lento por 5s!`, 'level');
+            if (this.state.monster) this.state.monster.warCryReduction = reduction;
+            if (this.state.tower?.monster) this.state.tower.monster.warCryReduction = reduction;
+            this.addLog(`🧨 Brado de Guerra! Inimigo ataca ${(reduction * 100).toFixed(0)}% mais lento por 5s!`, 'level');
             this.showNotification('Brado de Guerra!');
             setTimeout(() => {
-                if (this.state.monster)        this.state.monster.warCryReduction      = 0;
+                if (this.state.monster) this.state.monster.warCryReduction = 0;
                 if (this.state.tower?.monster) this.state.tower.monster.warCryReduction = 0;
             }, 5000);
         },
@@ -1588,7 +1708,7 @@ export function gameData() {
             if (this.holyBarrierCooldownTimer > 0) return;
             this.state.hero.mana -= 30;
             this.holyBarrierCooldownTimer = 20;
-            this.holyBarrierActiveTimer   = 6;
+            this.holyBarrierActiveTimer = 6;
             this.holyBarrierShieldHp = Math.floor(this.state.derived.hpMax * lvl * 0.20);
             this.addLog(`🛡️ Barreira Sagrada ativada! Escudo de ${this.holyBarrierShieldHp} HP por 6s!`, 'level');
             this.showNotification(`Barreira Sagrada: ${this.holyBarrierShieldHp} HP de escudo!`);
@@ -1631,7 +1751,7 @@ export function gameData() {
                 const dmgPerHit = Math.floor(this.state.derived.str * lvl * 0.60);
                 target.hp -= dmgPerHit * 2;
                 target.isHit = true; target.hitTimer = 0.5;
-                this.addLog(`👊 Golpe Duplo! 2 × ${dmgPerHit} = ${dmgPerHit*2} dano total!`, 'level');
+                this.addLog(`👊 Golpe Duplo! 2 × ${dmgPerHit} = ${dmgPerHit * 2} dano total!`, 'level');
                 if (target.hp <= 0) {
                     if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
                     else if (this.state.isExploring) this._killMonster();
@@ -1702,45 +1822,7 @@ export function gameData() {
             }
         },
 
-        // ==========================================
-        // TORRE DOS DESAFIOS (GDD v1.2: Pilar 3)
-        // ==========================================
 
-        startTowerFloor(floor) {
-            const targetFloor = floor || this.state.tower?.floor || 1;
-            const modifier = TOWER_MODIFIERS[(targetFloor - 1) % TOWER_MODIFIERS.length];
-            const hp = Math.floor(40 * Math.pow(1.25, targetFloor));
-            const dmg = Math.floor(15 * Math.pow(1.20, targetFloor));
-
-            this.state.tower = {
-                floor: targetFloor,
-                maxFloor: Math.max(this.state.tower?.maxFloor || 1, targetFloor),
-                inBattle: true,
-                modifier: modifier.id,
-                monster: {
-                    name: `Guardião do Andar ${targetFloor}`,
-                    icon: '🗿',
-                    color: '#c084fc',
-                    maxHp: hp,
-                    hp: hp,
-                    damage: dmg,
-                    atkSpeed: 1.6,
-                    atkTimer: 0,
-                    isBoss: true,
-                    isHit: false,
-                    hitTimer: 0,
-                    gold: Math.floor(50 * Math.pow(1.15, targetFloor)),
-                    xp: Math.floor(100 * Math.pow(1.15, targetFloor)),
-                },
-            };
-
-            this.state.monster = this.state.tower.monster;
-            this.towerModalOpen = false;
-            this.state.isExploring = true;
-            this.switchTab('explore');
-            this.addLog(`🗼 Entrou no Andar ${targetFloor} da Torre! Modificador: ${modifier.name}`, 'danger');
-            this.showNotification(`Andar ${targetFloor}: ${modifier.name}`);
-        },
 
         // ==========================================
         // INVASÃO DA VILA (GDD v1.2: Pilar 3)
@@ -1831,13 +1913,13 @@ export function gameData() {
 
         selectItem(index) {
             this.selectedItemIndex = index;
-            this.itemModalOpen     = true;
+            this.itemModalOpen = true;
         },
 
         selectEquippedSlot(slot) {
             if (!this.state.equipment || !this.state.equipment[slot]) return;
             this.selectedEquippedSlot = slot;
-            this.equippedModalOpen    = true;
+            this.equippedModalOpen = true;
         },
 
         toggleLockItem(index) {
@@ -1866,7 +1948,7 @@ export function gameData() {
             this.recalcStats();
             this.addLog(`Desequipou ${res.item.name}`, 'narrative');
             this.showNotification(`Desequipou ${res.item.name}!`);
-            this.equippedModalOpen    = false;
+            this.equippedModalOpen = false;
             this.selectedEquippedSlot = null;
             this.saveGame();
         },
@@ -1910,7 +1992,7 @@ export function gameData() {
                 this.recalcStats();
                 this.addLog(`Equipou ${item.name}`, 'narrative');
             }
-            this.itemModalOpen     = false;
+            this.itemModalOpen = false;
             this.selectedItemIndex = null;
         },
 
@@ -1925,7 +2007,7 @@ export function gameData() {
                 trackQuestProgress(this.state, 'EARN_GOLD', item.price);
                 this.addLog(`Vendeu ${item.name} por ${item.price} Ouro`, 'loot');
             }
-            this.itemModalOpen     = false;
+            this.itemModalOpen = false;
             this.selectedItemIndex = null;
         },
 
@@ -1945,17 +2027,47 @@ export function gameData() {
                 this.addLog(msg, 'loot');
                 this.showNotification(`+${result.scraps} Sucata!`);
             }
-            this.itemModalOpen     = false;
+            this.itemModalOpen = false;
             this.selectedItemIndex = null;
         },
 
         // ---- CONTROLE DE DERROTA & COMBATE ----
 
         retreatFromDefeat() {
-            this.defeatModalOpen   = false;
+            this.defeatModalOpen = false;
             this.state.isExploring = false;
             this.switchTab('city');
             this.showNotification('Recuou em segurança para a Cidade. O herói se recuperará com o tempo.');
+        },
+
+        reviveAndReturnToBattle() {
+            const minHp = (this.state.derived?.hpMax || 100) * 0.5;
+            if ((this.state.hero.hp || 0) < minHp) {
+                this.showNotification('Aguarde pelo menos 50% de vida para retornar.');
+                return;
+            }
+            this.state.hero.isDead = false;
+            this.defeatModalOpen = false;
+            if (this.state.monster) {
+                this.state.monster.hp = this.state.monster.maxHp;
+                this.state.monster.atkTimer = 0;
+            }
+            this.state.isExploring = true;
+            this.addLog('⚔️ O herói recuperou fôlego suficiente e retornou à batalha!', 'narrative');
+            this.showNotification('Retornando à batalha!');
+        },
+
+        reviveHero() {
+            const minHp = (this.state.derived?.hpMax || 100) * 0.5;
+            if ((this.state.hero.hp || 0) >= minHp) {
+                this.state.hero.isDead = false;
+                this.defeatModalOpen = false;
+                if (this.state.monster) {
+                    this.state.monster.hp = this.state.monster.maxHp;
+                    this.state.monster.atkTimer = 0;
+                }
+                this.showNotification('Herói pronto para novas batalhas!');
+            }
         },
 
         stopExploring() {
@@ -1991,9 +2103,15 @@ export function gameData() {
 
         startTowerFloor(floor) {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) {
-                this.showNotification('Herói abatido! Aguarde a recuperação da vida.');
-                this.addLog('Herói derrotado. Descanse na cidade para se recuperar antes de desafiar a torre.', 'danger');
-                return;
+                const minHp = (this.state.derived?.hpMax || 100) * 0.5;
+                if ((this.state.hero.hp || 0) >= minHp) {
+                    this.state.hero.isDead = false;
+                    this.defeatModalOpen = false;
+                } else {
+                    this.showNotification('Herói muito ferido! Aguarde pelo menos 50% de vida.');
+                    this.addLog('Herói derrotado. Descanse na cidade para recuperar pelo menos metade da vida antes de desafiar a torre.', 'danger');
+                    return;
+                }
             }
 
             // Exclusividade mútua: desliga a exploração normal
@@ -2071,7 +2189,7 @@ export function gameData() {
         _setupCanvas() {
             this.canvas = document.getElementById('game-canvas');
             if (this.canvas) {
-                this.ctx   = this.canvas.getContext('2d');
+                this.ctx = this.canvas.getContext('2d');
                 this.stars = initStars(this.canvas);
             }
         },
@@ -2225,261 +2343,261 @@ export function gameData() {
                     }
                 }
 
-            // Produção de construções e tempo jogado
-            processBuildings(this.state, dt);
-            if (!this.state.lifetimeStats) {
-                this.state.lifetimeStats = { kills: 0, bosses: 0, goldEarned: 0, itemsCrafted: 0, itemsUpgraded: 0, enchantmentsDone: 0, timePlayedSec: 0, highestTowerFloor: 1 };
-            }
-            this.state.lifetimeStats.timePlayedSec = (this.state.lifetimeStats.timePlayedSec || 0) + dt;
-
-            // Salva timestamp para catch-up offline
-            this.state.lastTickAt = Date.now();
-
-            // Cooldown de habilidades ativas (base)
-            if (this.activeCooldownTimer > 0) {
-                this.activeCooldownTimer = Math.max(0, this.activeCooldownTimer - dt);
-            }
-            if (this.healCooldownTimer > 0) {
-                this.healCooldownTimer = Math.max(0, this.healCooldownTimer - dt);
-            }
-            // Cooldowns de ativos desbloqueados pela Árvore
-            if (this.warCryCooldownTimer > 0)       this.warCryCooldownTimer       = Math.max(0, this.warCryCooldownTimer - dt);
-            if (this.holyBarrierCooldownTimer > 0)   this.holyBarrierCooldownTimer   = Math.max(0, this.holyBarrierCooldownTimer - dt);
-            if (this.arcaneNovaCooldownTimer > 0)    this.arcaneNovaCooldownTimer    = Math.max(0, this.arcaneNovaCooldownTimer - dt);
-            if (this.doubleStrikeCooldownTimer > 0)  this.doubleStrikeCooldownTimer  = Math.max(0, this.doubleStrikeCooldownTimer - dt);
-            // Barreira Sagrada: decai e expira
-            if (this.holyBarrierActiveTimer > 0) {
-                this.holyBarrierActiveTimer = Math.max(0, this.holyBarrierActiveTimer - dt);
-                if (this.holyBarrierActiveTimer <= 0) {
-                    this.holyBarrierShieldHp = 0;
-                    this.addLog('⚡ Barreira Sagrada expirou!', 'narrative');
+                // Produção de construções e tempo jogado
+                processBuildings(this.state, dt);
+                if (!this.state.lifetimeStats) {
+                    this.state.lifetimeStats = { kills: 0, bosses: 0, goldEarned: 0, itemsCrafted: 0, itemsUpgraded: 0, enchantmentsDone: 0, timePlayedSec: 0, highestTowerFloor: 1 };
                 }
-            }
+                this.state.lifetimeStats.timePlayedSec = (this.state.lifetimeStats.timePlayedSec || 0) + dt;
 
-            // Recuperação / respawn (regen normal baseada nos atributos)
-            if (this.state.hero.isDead) {
-                this.state.hero.hp += this.state.derived.regen * dt;
-                this.respawnPercent = Math.min(100, Math.floor((this.state.hero.hp / this.state.derived.hpMax) * 100));
-                // Respawn ao atingir HP cheio (100%)
-                if (this.state.hero.hp >= this.state.derived.hpMax) {
-                    this.state.hero.hp     = this.state.derived.hpMax;
-                    this.state.hero.isDead = false;
-                    this.addLog('Herói recuperado com HP máximo!', 'narrative');
-                    // Reseta HP do monstro atual ao voltar
-                    if (this.state.monster) {
-                        this.state.monster.hp       = this.state.monster.maxHp;
-                        this.state.monster.atkTimer  = 0;
-                    }
-                }
-            } else {
-                // HP regen natural (bloqueado pelo modificador 'curse' na torre)
-                const isCursed = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'curse';
-                if (this.state.hero.hp < this.state.derived.hpMax && !isCursed) {
-                    this.state.hero.hp = Math.min(
-                        this.state.derived.hpMax,
-                        this.state.hero.hp + this.state.derived.regen * dt
-                    );
-                }
-                // Energy regen (sempre, mesmo sem explorar)
-                const eMax = this.state.derived.energyMax || 100;
-                const eReg = this.state.derived.energyRegen || 5;
-                this.state.hero.energy = Math.min(eMax, (this.state.hero.energy || 0) + eReg * dt);
-                // Mana regen
-                const mMax = this.state.derived.manaMax || 100;
-                const mReg = this.state.derived.manaRegen || 2;
-                this.state.hero.mana = Math.min(mMax, (this.state.hero.mana || 0) + mReg * dt);
+                // Salva timestamp para catch-up offline
+                this.state.lastTickAt = Date.now();
 
-                // Atualiza contagem regressiva do buff do Oráculo
-                if (this.state.oracleBuff) {
-                    if (this.state.oracleBuff.expiresAt) {
-                        this.state.oracleBuff.remaining = Math.max(0, Math.floor((this.state.oracleBuff.expiresAt - Date.now()) / 1000));
-                        if (this.state.oracleBuff.remaining <= 0) {
-                            this.state.oracleBuff = null;
-                            this.addLog('🔮 A bênção do Oráculo se dissipou.', 'narrative');
-                        }
+                // Cooldown de habilidades ativas (base)
+                if (this.activeCooldownTimer > 0) {
+                    this.activeCooldownTimer = Math.max(0, this.activeCooldownTimer - dt);
+                }
+                if (this.healCooldownTimer > 0) {
+                    this.healCooldownTimer = Math.max(0, this.healCooldownTimer - dt);
+                }
+                // Cooldowns de ativos desbloqueados pela Árvore
+                if (this.warCryCooldownTimer > 0) this.warCryCooldownTimer = Math.max(0, this.warCryCooldownTimer - dt);
+                if (this.holyBarrierCooldownTimer > 0) this.holyBarrierCooldownTimer = Math.max(0, this.holyBarrierCooldownTimer - dt);
+                if (this.arcaneNovaCooldownTimer > 0) this.arcaneNovaCooldownTimer = Math.max(0, this.arcaneNovaCooldownTimer - dt);
+                if (this.doubleStrikeCooldownTimer > 0) this.doubleStrikeCooldownTimer = Math.max(0, this.doubleStrikeCooldownTimer - dt);
+                // Barreira Sagrada: decai e expira
+                if (this.holyBarrierActiveTimer > 0) {
+                    this.holyBarrierActiveTimer = Math.max(0, this.holyBarrierActiveTimer - dt);
+                    if (this.holyBarrierActiveTimer <= 0) {
+                        this.holyBarrierShieldHp = 0;
+                        this.addLog('⚡ Barreira Sagrada expirou!', 'narrative');
                     }
                 }
 
-                // Processa cerco da vila (Contagem regressiva de 3 minutos)
-                if (this.state.villageSiege?.active) {
-                    this.state.villageSiege.timerSec -= dt;
-                    if (this.state.villageSiege.timerSec <= 0) {
-                        const defRes = resolveSiegeDefeat(this.state);
-                        this.addLog(defRes.msg, 'danger');
-                        this.showNotification('💀 A Vila foi saqueada pelos monstros invasores!');
-                        if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
-                        this.saveGame();
+                // Recuperação / respawn (regen normal baseada nos atributos)
+                if (this.state.hero.isDead) {
+                    this.state.hero.hp += this.state.derived.regen * dt;
+                    this.respawnPercent = Math.min(100, Math.floor((this.state.hero.hp / this.state.derived.hpMax) * 100));
+                    // Respawn ao atingir X quantidade de HP
+                    if (this.state.hero.hp >= this.state.derived.hpMax) {
+                        this.state.hero.hp = this.state.derived.hpMax;
+                        this.state.hero.isDead = false;
+                        this.addLog('Herói recuperado com HP máximo!', 'narrative');
+                        // Reseta HP do monstro atual ao voltar
+                        if (this.state.monster) {
+                            this.state.monster.hp = this.state.monster.maxHp;
+                            this.state.monster.atkTimer = 0;
+                        }
                     }
-                } else if (Date.now() > (this.state.villageSiege?.nextCheckAt || 0) && (this.state.hero?.level || 1) >= 5) {
-                    this.state.villageSiege.nextCheckAt = Date.now() + (2 * 3600 * 1000) + Math.random() * (2 * 3600 * 1000);
-                    if (Math.random() < 0.35) {
-                        this.triggerVillageSiege();
+                } else {
+                    // HP regen natural (bloqueado pelo modificador 'curse' na torre)
+                    const isCursed = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'curse';
+                    if (this.state.hero.hp < this.state.derived.hpMax && !isCursed) {
+                        this.state.hero.hp = Math.min(
+                            this.state.derived.hpMax,
+                            this.state.hero.hp + this.state.derived.regen * dt
+                        );
                     }
-                }
+                    // Energy regen (sempre, mesmo sem explorar)
+                    const eMax = this.state.derived.energyMax || 100;
+                    const eReg = this.state.derived.energyRegen || 5;
+                    this.state.hero.energy = Math.min(eMax, (this.state.hero.energy || 0) + eReg * dt);
+                    // Mana regen
+                    const mMax = this.state.derived.manaMax || 100;
+                    const mReg = this.state.derived.manaRegen || 2;
+                    this.state.hero.mana = Math.min(mMax, (this.state.hero.mana || 0) + mReg * dt);
 
-                // Processa Combate da Exploração
-                if (this.state.isExploring && this.state.monster) {
-                    // Injeta referências temporárias para a Árvore e Barreira no objeto hero
-                    this.state.hero._treeSkills  = this.state.treeSkills;
-                    this.state.hero._barrierShield = this.holyBarrierShieldHp;
-
-                    const result = processCombatTick(
-                        dt,
-                        this.state.hero,
-                        this.state.monster,
-                        this.state.derived,
-                        this.state.bestiary,
-                        this.state.oracleBuff,
-                        this.state.pets?.active,
-                        this.state.equipment,
-                        this.state.ascension,
-                        null
-                    );
-
-                    // Sincroniza shield de volta (pode ter sido consumido em combat.js)
-                    this.holyBarrierShieldHp = this.state.hero._barrierShield || 0;
-
-
-                    // Animação de ataque do herói
-                    if (result.heroAttacked) {
-                        this.heroAttacking = true;
-                        this.attackFlashMs = 200;
-                        const f = makeHeroDmgFloat(this.canvas, result.dmgToMonster, result.isCritical);
-                        if (f) this.pushCombatFloat(f);
-
-                        if (this.state.audioEnabled) {
-                            if (result.isCritical) playCritSlash(this.state.audioVolume);
-                            else playSwordSlash(this.state.audioVolume);
-                        }
-
-                        if (!this.state.statsSession) {
-                            this.state.statsSession = { startedAt: Date.now(), kills: 0, goldEarned: 0, xpEarned: 0, damageDealt: 0 };
-                        }
-                        this.state.statsSession.damageDealt += result.dmgToMonster;
-
-                        let procDelay = 120;
-                        // Bônus de Conjunto: Descarga Elétrica
-                        if (result.chainLightning) {
-                            const ef = makeMonsterEffectFloat(this.canvas, '⚡ RAIO DUPLO!', '#fbbf24');
-                            if (ef) this.pushCombatFloat(ef, procDelay);
-                            procDelay += 120;
-                        }
-
-                        // Especialização: Explosão Arcana
-                        if (result.arcaneBlast) {
-                            const ef = makeMonsterEffectFloat(this.canvas, '🔮 EXPLOSÃO ARCANA!', '#c084fc');
-                            if (ef) this.pushCombatFloat(ef, procDelay);
-                            procDelay += 120;
-                        }
-
-                        // Floats especiais de Encantamento
-                        if (result.elementalType === 'fire') {
-                            const ef = makeMonsterEffectFloat(this.canvas, '🔥 Queimadura!', '#f97316');
-                            if (ef) this.pushCombatFloat(ef, procDelay);
-                            procDelay += 120;
-                        } else if (result.elementalType === 'ice') {
-                            const ef = makeMonsterEffectFloat(this.canvas, '❄️ Gelo!', '#38bdf8');
-                            if (ef) this.pushCombatFloat(ef, procDelay);
-                            procDelay += 120;
-                        } else if (result.elementalType === 'vampiric') {
-                            const ef = makeHeroHealFloat(this.canvas, `+${result.vampiricHeal} HP`, '#4ade80');
-                            if (ef) this.pushCombatFloat(ef, procDelay);
-                            procDelay += 120;
+                    // Atualiza contagem regressiva do buff do Oráculo
+                    if (this.state.oracleBuff) {
+                        if (this.state.oracleBuff.expiresAt) {
+                            this.state.oracleBuff.remaining = Math.max(0, Math.floor((this.state.oracleBuff.expiresAt - Date.now()) / 1000));
+                            if (this.state.oracleBuff.remaining <= 0) {
+                                this.state.oracleBuff = null;
+                                this.addLog('🔮 A bênção do Oráculo se dissipou.', 'narrative');
+                            }
                         }
                     }
 
-                    if (result.monsterAttacked) {
-                        if (result.dodged) {
-                            const ef = makeHeroHealFloat(this.canvas, '💨 ESQUIVOU!', '#38bdf8');
-                            if (ef) this.pushCombatFloat(ef);
-                        } else {
-                            this.heroIsHit  = true;
-                            this.heroHitMs  = 180;
-                            const f = makeMonsterDmgFloat(this.canvas, result.dmgToHero);
+                    // Processa cerco da vila (Contagem regressiva de 3 minutos)
+                    if (this.state.villageSiege?.active) {
+                        this.state.villageSiege.timerSec -= dt;
+                        if (this.state.villageSiege.timerSec <= 0) {
+                            const defRes = resolveSiegeDefeat(this.state);
+                            this.addLog(defRes.msg, 'danger');
+                            this.showNotification('💀 A Vila foi saqueada pelos monstros invasores!');
+                            if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
+                            this.saveGame();
+                        }
+                    } else if (Date.now() > (this.state.villageSiege?.nextCheckAt || 0) && (this.state.hero?.level || 1) >= 5) {
+                        this.state.villageSiege.nextCheckAt = Date.now() + (2 * 3600 * 1000) + Math.random() * (2 * 3600 * 1000);
+                        if (Math.random() < 0.35) {
+                            this.triggerVillageSiege();
+                        }
+                    }
+
+                    // Processa Combate da Exploração
+                    if (this.state.isExploring && this.state.monster) {
+                        // Injeta referências temporárias para a Árvore e Barreira no objeto hero
+                        this.state.hero._treeSkills = this.state.treeSkills;
+                        this.state.hero._barrierShield = this.holyBarrierShieldHp;
+
+                        const result = processCombatTick(
+                            dt,
+                            this.state.hero,
+                            this.state.monster,
+                            this.state.derived,
+                            this.state.bestiary,
+                            this.state.oracleBuff,
+                            this.state.pets?.active,
+                            this.state.equipment,
+                            this.state.ascension,
+                            null
+                        );
+
+                        // Sincroniza shield de volta (pode ter sido consumido em combat.js)
+                        this.holyBarrierShieldHp = this.state.hero._barrierShield || 0;
+
+
+                        // Animação de ataque do herói
+                        if (result.heroAttacked) {
+                            this.heroAttacking = true;
+                            this.attackFlashMs = 200;
+                            const f = makeHeroDmgFloat(this.canvas, result.dmgToMonster, result.isCritical);
                             if (f) this.pushCombatFloat(f);
 
-                            let defDelay = 120;
-                            if (result.paladinHeal > 0) {
-                                const hf = makeHeroHealFloat(this.canvas, `+${result.paladinHeal} HP`, '#facc15');
-                                if (hf) this.pushCombatFloat(hf, defDelay);
-                                defDelay += 120;
+                            if (this.state.audioEnabled) {
+                                if (result.isCritical) playCritSlash(this.state.audioVolume);
+                                else playSwordSlash(this.state.audioVolume);
                             }
-                            if (result.reflectedDmg > 0) {
-                                const rf = makeMonsterEffectFloat(this.canvas, `🛡️ ${result.reflectedDmg} Refletido!`, '#facc15');
-                                if (rf) this.pushCombatFloat(rf, defDelay);
-                                defDelay += 120;
+
+                            if (!this.state.statsSession) {
+                                this.state.statsSession = { startedAt: Date.now(), kills: 0, goldEarned: 0, xpEarned: 0, damageDealt: 0 };
                             }
-                            if (result.sacredBarrierActivated) {
-                                const bf = makeHeroHealFloat(this.canvas, '🛡️ BARREIRA SAGRADA!', '#3b82f6');
-                                if (bf) this.pushCombatFloat(bf, defDelay);
-                                this.addLog('🛡️ Barreira Sagrada Ativada! Golpe letal absorvido com 30% HP.', 'prestige');
+                            this.state.statsSession.damageDealt += result.dmgToMonster;
+
+                            let procDelay = 120;
+                            // Bônus de Conjunto: Descarga Elétrica
+                            if (result.chainLightning) {
+                                const ef = makeMonsterEffectFloat(this.canvas, '⚡ RAIO DUPLO!', '#fbbf24');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
                             }
+
+                            // Especialização: Explosão Arcana
+                            if (result.arcaneBlast) {
+                                const ef = makeMonsterEffectFloat(this.canvas, '🔮 EXPLOSÃO ARCANA!', '#c084fc');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            }
+
+                            // Floats especiais de Encantamento
+                            if (result.elementalType === 'fire') {
+                                const ef = makeMonsterEffectFloat(this.canvas, '🔥 Queimadura!', '#f97316');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            } else if (result.elementalType === 'ice') {
+                                const ef = makeMonsterEffectFloat(this.canvas, '❄️ Gelo!', '#38bdf8');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            } else if (result.elementalType === 'vampiric') {
+                                const ef = makeHeroHealFloat(this.canvas, `+${result.vampiricHeal} HP`, '#4ade80');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            }
+                        }
+
+                        if (result.monsterAttacked) {
+                            if (result.dodged) {
+                                const ef = makeHeroHealFloat(this.canvas, '💨 ESQUIVOU!', '#38bdf8');
+                                if (ef) this.pushCombatFloat(ef);
+                            } else {
+                                this.heroIsHit = true;
+                                this.heroHitMs = 180;
+                                const f = makeMonsterDmgFloat(this.canvas, result.dmgToHero);
+                                if (f) this.pushCombatFloat(f);
+
+                                let defDelay = 120;
+                                if (result.paladinHeal > 0) {
+                                    const hf = makeHeroHealFloat(this.canvas, `+${result.paladinHeal} HP`, '#facc15');
+                                    if (hf) this.pushCombatFloat(hf, defDelay);
+                                    defDelay += 120;
+                                }
+                                if (result.reflectedDmg > 0) {
+                                    const rf = makeMonsterEffectFloat(this.canvas, `🛡️ ${result.reflectedDmg} Refletido!`, '#facc15');
+                                    if (rf) this.pushCombatFloat(rf, defDelay);
+                                    defDelay += 120;
+                                }
+                                if (result.sacredBarrierActivated) {
+                                    const bf = makeHeroHealFloat(this.canvas, '🛡️ BARREIRA SAGRADA!', '#3b82f6');
+                                    if (bf) this.pushCombatFloat(bf, defDelay);
+                                    this.addLog('🛡️ Barreira Sagrada Ativada! Golpe letal absorvido com 30% HP.', 'prestige');
+                                }
+                            }
+                        }
+
+                        if (result.killed) {
+                            this._killMonster();
+                        }
+
+                        if (result.heroKilled) {
+                            this.state.hero.isDead = true;
+                            this.state.isExploring = false;
+                            this.defeatModalOpen = true;
+                            if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
+                            this.addLog('Você foi derrotado em combate! Retorne à cidade para descansar.', 'danger');
                         }
                     }
 
-                    if (result.killed) {
-                        this._killMonster();
+                    // Processa Combate Dedicado da Invasão da Vila (GDD Expansão 1.3)
+                    if (this.state.villageSiege?.active && this.state.villageSiege?.inBattle && this.state.villageSiege?.monster) {
+                        const siegeRes = processSiegeCombatTick(this.state, dt);
+                        if (siegeRes?.victory) {
+                            const vicRes = resolveSiegeVictory(this.state);
+                            this.state.villageSiege.inBattle = false;
+                            this.state.villageSiege.active = false;
+                            this.siegeModalOpen = false;
+                            this.addLog(vicRes.msg, 'prestige');
+                            this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
+                            if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+                        } else if (siegeRes?.defeat) {
+                            this.state.hero.isDead = true;
+                            this.state.villageSiege.inBattle = false;
+                            this.siegeModalOpen = false;
+                            this.defeatModalOpen = true;
+                            if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
+                            this.addLog('Você foi derrotado pelo General Invasor! A vila precisa de reforços.', 'danger');
+                        }
                     }
 
-                    if (result.heroKilled) {
-                        this.state.hero.isDead  = true;
-                        this.state.isExploring  = false;
-                        this.defeatModalOpen    = true;
-                        if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
-                        this.addLog('Você foi derrotado em combate! Retorne à cidade para descansar.', 'danger');
-                    }
-                }
-
-                // Processa Combate Dedicado da Invasão da Vila (GDD Expansão 1.3)
-                if (this.state.villageSiege?.active && this.state.villageSiege?.inBattle && this.state.villageSiege?.monster) {
-                    const siegeRes = processSiegeCombatTick(this.state, dt);
-                    if (siegeRes?.victory) {
-                        const vicRes = resolveSiegeVictory(this.state);
-                        this.state.villageSiege.inBattle = false;
-                        this.state.villageSiege.active = false;
-                        this.siegeModalOpen = false;
-                        this.addLog(vicRes.msg, 'prestige');
-                        this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
-                        if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
-                    } else if (siegeRes?.defeat) {
-                        this.state.hero.isDead = true;
-                        this.state.villageSiege.inBattle = false;
-                        this.siegeModalOpen = false;
-                        this.defeatModalOpen = true;
-                        if (this.state.audioEnabled) playDefeatTone(this.state.audioVolume);
-                        this.addLog('Você foi derrotado pelo General Invasor! A vila precisa de reforços.', 'danger');
+                    // Processa Combate Roguelike Dedicado da Torre dos Desafios
+                    if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
+                        processTowerCombatTick(this.state, dt);
+                        this._checkLevelUp();
                     }
                 }
 
-                // Processa Combate Roguelike Dedicado da Torre dos Desafios
-                if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
-                    processTowerCombatTick(this.state, dt);
+                // Garante verificação de level-up imediata se houver XP pendente de qualquer fonte
+                if (this.state.hero && this.state.hero.xp >= this.state.hero.nextXp) {
                     this._checkLevelUp();
                 }
-            }
 
-            // Garante verificação de level-up imediata se houver XP pendente de qualquer fonte
-            if (this.state.hero && this.state.hero.xp >= this.state.hero.nextXp) {
-                this._checkLevelUp();
-            }
-
-            // Decai flag de ataque do herói
-            if (this.attackFlashMs > 0) {
-                this.attackFlashMs -= dt * 1000;
-                if (this.attackFlashMs <= 0) {
-                    this.heroAttacking = false;
-                    this.attackFlashMs = 0;
+                // Decai flag de ataque do herói
+                if (this.attackFlashMs > 0) {
+                    this.attackFlashMs -= dt * 1000;
+                    if (this.attackFlashMs <= 0) {
+                        this.heroAttacking = false;
+                        this.attackFlashMs = 0;
+                    }
                 }
-            }
 
-            // Decai flag de hit do herói
-            if (this.heroHitMs > 0) {
-                this.heroHitMs -= dt * 1000;
-                if (this.heroHitMs <= 0) {
-                    this.heroIsHit = false;
-                    this.heroHitMs = 0;
+                // Decai flag de hit do herói
+                if (this.heroHitMs > 0) {
+                    this.heroHitMs -= dt * 1000;
+                    if (this.heroHitMs <= 0) {
+                        this.heroIsHit = false;
+                        this.heroHitMs = 0;
+                    }
                 }
-            }
 
                 // Render apenas se na aba de exploração
                 if (this.canvas && this.activeTab === 'explore') {

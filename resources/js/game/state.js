@@ -168,4 +168,9 @@ export const defaultState = {
     autoBattle: true,
     monster: null,
     logs: [],
+    tutorial: {
+        completed: false,
+        skipped: false,
+        rewardClaimed: false,
+    },
 };

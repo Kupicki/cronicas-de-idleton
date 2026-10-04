@@ -674,8 +674,15 @@ export function startTowerRun(state, floor = 1) {
         state.tower = { floor: 1, maxFloor: 1, inBattle: false, logs: [] };
     }
 
-    // Herói não pode desafiar a torre se estiver morto ou com 0 HP
-    if (state.hero.isDead || (state.hero.hp || 0) <= 0) {
+    // Herói pode desafiar a torre a partir de 50% de HP se estiver em recuperação
+    const minHp = (state.derived?.hpMax || 100) * 0.5;
+    if (state.hero.isDead) {
+        if ((state.hero.hp || 0) >= minHp) {
+            state.hero.isDead = false;
+        } else {
+            return false;
+        }
+    } else if ((state.hero.hp || 0) <= 0) {
         return false;
     }
 
