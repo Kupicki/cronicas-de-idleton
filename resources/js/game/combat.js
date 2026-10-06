@@ -135,11 +135,21 @@ export function calcActiveSetBonuses(equipment = {}) {
 export function calcHeroDmg(derived, monster, bestiary = {}, oracleBuff = null, activePet = null, equipment = {}, ascension = null, hero = null) {
     let dmg = derived.str;
 
-    // Especialização: Berserker (+1% de dano a cada 2% de HP perdido)
+    // Efeitos da Árvore de Habilidades
+    const te = (typeof getTreeEffects === 'function' && hero?._treeSkills)
+        ? getTreeEffects({ hero, treeSkills: hero._treeSkills })
+        : {};
+
+    // Especialização: Berserker (+1% a +2% de dano a cada 2% de HP perdido)
     if (hero && hero.specialization === 'berserker' && derived.hpMax > 0) {
-        const missingHpRatio = Math.max(0, 1 - (hero.hp / derived.hpMax));
-        const berserkBonus = missingHpRatio * 0.5; // Até +50% de dano adicional
-        dmg = Math.floor(dmg * (1 + berserkBonus));
+        const missingHpRatio = Math.max(0, 1 - ((hero.hp || 0) / derived.hpMax));
+        const furyScaling = 0.5 * (1 + (te.fury_dmg || 0) * 0.35);
+        dmg = Math.floor(dmg * (1 + missingHpRatio * furyScaling));
+    }
+
+    // Sede de Sangue (Berserker Keystone): +5% de dano por abate acumulado (máx 10 stacks)
+    if (hero && (hero.bloodlustStacks || 0) > 0) {
+        dmg = Math.floor(dmg * (1 + hero.bloodlustStacks * 0.05));
     }
 
     // Bônus de Conjunto: Tempestade Primordial (4 peças: +15% dano crítico / velocidade)
@@ -305,12 +315,18 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         }
         // armor_ignore (Ladrão no Ataque Concentrado) — não se aplica aqui, só no ativo
 
-        // Especialização: Mago Arcano (Consome 5 de mana por explosão mágica de 40%)
+        // Especialização: Mago Arcano (Explosão Arcana aprimorada pela Árvore)
         if (hero.specialization === 'arcane_mage' && (hero.mana || 0) >= 5) {
             hero.mana -= 5;
-            const magicBlast = Math.max(1, Math.floor(result.dmgToMonster * 0.40));
+            const blastMult = 0.30 + (te.arcane_blast_boost || 0) * 0.15;
+            const magicBlast = Math.max(1, Math.floor(result.dmgToMonster * blastMult));
             result.dmgToMonster += magicBlast;
             result.arcaneBlast = true;
+        }
+
+        // Sobrecarga de Mana (Mago Arcano): chance de recuperar 15 de mana no ataque
+        if (te.mana_overload && Math.random() < te.mana_overload * 0.10) {
+            hero.mana = Math.min(derived.manaMax, (hero.mana || 0) + 15);
         }
 
         // Bônus de Conjunto: 8 peças Tempestade Primordial (25% chance de descarga elétrica instantânea)
@@ -364,6 +380,11 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         monster.hitTimer = 0.2;
         if (monster.hp <= 0) {
             result.killed = true;
+            // Sede de Sangue: abate acumula stacks de dano e cura HP
+            if (te.bloodlust_kill_stack) {
+                hero.bloodlustStacks = Math.min((hero.bloodlustStacks || 0) + 1, 10);
+                hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + Math.floor(derived.hpMax * 0.05));
+            }
         }
     }
 
@@ -380,16 +401,31 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
             ? Math.min(0.45, (derived.agi * 0.01) * 2)
             : Math.min(0.25, derived.agi * 0.005);
 
-        if (Math.random() < dodgeChance) {
+        // Imunidade do Escudo Divino (Paladino Ativo)
+        if (hero.divineShieldTimer > 0) {
             result.dodged = true;
             result.dmgToHero = 0;
+            result.divineShieldImmune = true;
+        } else if (Math.random() < dodgeChance) {
+            result.dodged = true;
+            result.dmgToHero = 0;
+
+            // Reflexos Assassinos (Ladrão): contra-ataque instantâneo + 15 de energia!
+            if (te.assassin_counter) {
+                result.assassinCounter = true;
+                result.counterDmg = Math.max(1, Math.floor(derived.str * (0.5 + te.assassin_counter * 0.25)));
+                monster.hp -= result.counterDmg;
+                monster.isHit = true;
+                monster.hitTimer = 0.2;
+                hero.energy = Math.min(derived.energyMax, (hero.energy || 0) + 15);
+                if (monster.hp <= 0) result.killed = true;
+            }
         } else {
             // Cálculo de armadura (Protetor 4 peças: +15% armadura)
             const effectiveDef = setBonuses.protector4 ? derived.def * 1.15 : derived.def;
             result.dmgToHero = Math.max(1, Math.floor(monster.damage - effectiveDef * 0.5));
 
-            // Barreira Sagrada ativa (Árvore Paladino): absorve dano antes do HP
-            // (holyBarrierShieldHp está no componente Alpine, passamos via hero._barrierShield)
+            // Barreira Sagrada ativa (absorve dano antes do HP)
             if ((hero._barrierShield || 0) > 0) {
                 const absorbed = Math.min(hero._barrierShield, result.dmgToHero);
                 hero._barrierShield -= absorbed;
@@ -397,14 +433,14 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
                 if (result.dmgToHero < 0) result.dmgToHero = 0;
             }
 
-            // Especialização: Paladino (Cura 5% do dano recebido e reflete)
-            const baseReflect = 0.15;
-            const retalLvl = te.retaliation || 0;
+            // Especialização: Paladino (Cura do dano recebido e reflete Dano Verdadeiro)
             if (hero.specialization === 'paladin') {
-                result.paladinHeal = Math.max(1, Math.floor(result.dmgToHero * 0.05));
+                const healPct = 0.03 + (te.retaliation_boost || 0) * 0.02;
+                const reflectPct = 0.10 + (te.retaliation_boost || 0) * 0.05;
+                result.paladinHeal = Math.max(1, Math.floor(result.dmgToHero * healPct));
                 hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + result.paladinHeal);
 
-                result.reflectedDmg = Math.max(1, Math.floor(result.dmgToHero * (baseReflect + retalLvl * 0.05)));
+                result.reflectedDmg = Math.max(1, Math.floor(result.dmgToHero * reflectPct));
                 monster.hp -= result.reflectedDmg;
                 if (monster.hp <= 0) result.killed = true;
             }
@@ -418,6 +454,7 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
                 result.sacredBarrierActivated = true;
             } else if (hero.hp <= 0) {
                 hero.hp = 0;
+                hero.bloodlustStacks = 0; // Perde stacks de Sede de Sangue ao morrer
                 result.heroKilled = true;
             }
         }
@@ -968,7 +1005,9 @@ export function processTowerCombatTick(state, dt) {
             ? Math.min(0.45, (derived.agi * 0.01) * 2)
             : Math.min(0.25, (derived.agi || 5) * 0.005);
 
-        if (Math.random() < dodgeChance) {
+        if (hero.divineShieldTimer > 0) {
+            t.logs.unshift(`✨ Escudo Divino repeliu todo o dano de ${m.name}!`);
+        } else if (Math.random() < dodgeChance) {
             t.logs.unshift(`💨 Você esquivou com maestria do golpe de ${m.name}!`);
         } else {
             const effectiveDef = setBonuses.protector4 ? (derived.def || 5) * 1.15 : (derived.def || 5);

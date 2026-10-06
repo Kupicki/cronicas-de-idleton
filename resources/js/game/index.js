@@ -53,7 +53,7 @@ import {
     createLogEntry, recalcDerived, getItemDelta,
     changeHeroName, buySkill, allocateStat,
     playTavernGame, loadGame, saveGame,
-    buyTreeNode,
+    buyTreeNode, respecSkillTree,
 } from './ui.js';
 import {
     playSwordSlash, playCritSlash, playCoinClink,
@@ -183,7 +183,11 @@ export function gameData() {
         heroIsHit: false,
         heroHitMs: 0,
         activeCooldownTimer: 0,  // cooldown do Ataque Concentrado
-        healCooldownTimer: 0,  // cooldown da Cura Espontânea
+        healCooldownTimer: 0,    // cooldown da Cura Espontânea
+        devastatingStrikeTimer: 0, // cooldown do Golpe Devastador (Berserker)
+        divineShieldTimer: 0,      // cooldown do Escudo Divino (Paladino)
+        arcaneMeteorTimer: 0,      // cooldown do Meteoro Arcano (Mago)
+        ambushTimer: 0,            // cooldown da Emboscada (Ladrão)
 
         // --- Config de stats visível no template ---
         statConfig: [
@@ -447,8 +451,13 @@ export function gameData() {
                 s.monster = createMonster(s.zone, s.killsInZone || 0, s.bossSafeMode);
             }
 
-            // GDD Fase 2.2: migração da Árvore de Habilidades
+            // GDD Fase 2.2 / 4A: migração da Árvore de Habilidades
             if (!s.treeSkills) s.treeSkills = {};
+            if (s.treeSkills.brs_a2) { s.treeSkills.brs_act = s.treeSkills.brs_a2; delete s.treeSkills.brs_a2; }
+            if (s.treeSkills.pal_a2) { s.treeSkills.pal_act = s.treeSkills.pal_a2; delete s.treeSkills.pal_a2; }
+            if (s.treeSkills.mag_a2) { s.treeSkills.mag_act = s.treeSkills.mag_a2; delete s.treeSkills.mag_a2; }
+            if (s.treeSkills.thf_a2) { s.treeSkills.thf_act = s.treeSkills.thf_a2; delete s.treeSkills.thf_a2; }
+
             if (typeof s.hero.treePoints === 'undefined') {
                 // Retroativo: jogadores que já passaram do nível 10 recebem os pontos acumulados
                 const pastLevels = Math.max(0, (s.hero.level || 1) - 9);
@@ -752,32 +761,72 @@ export function gameData() {
         },
 
         // ==========================================
-        // HABILIDADE ATIVA — Ataque Concentrado
+        // HABILIDADE ATIVA — Ataque Concentrado (Modificado pela Árvore)
         // ==========================================
 
         useFocusedAttack() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
-            if ((this.state.hero.energy || 0) < 30) {
-                this.addLog('Energia insuficiente para Ataque Concentrado! (30 ⚡)', 'danger');
-                this.showNotification('Energia insuficiente (30 ⚡)!');
-                return;
+            const te = getTreeEffects(this.state);
+
+            // Determina custo e recurso (Mago usa Mana, outros usam Energia com desconto da árvore)
+            const isArcane = !!te.mag_focus_boost;
+            const energyCost = Math.max(15, 30 - (te.brs_focus_boost ? te.brs_focus_boost * 3 : (te.thf_focus_boost ? te.thf_focus_boost * 4 : 0)));
+            const manaCost = 30;
+
+            if (isArcane) {
+                if ((this.state.hero.mana || 0) < manaCost) {
+                    this.addLog(`Mana insuficiente para Transmutação Arcana! (${manaCost} 🧪)`, 'danger');
+                    this.showNotification(`Mana insuficiente (${manaCost} 🧪)!`);
+                    return;
+                }
+            } else {
+                if ((this.state.hero.energy || 0) < energyCost) {
+                    this.addLog(`Energia insuficiente para Ataque Concentrado! (${energyCost} ⚡)`, 'danger');
+                    this.showNotification(`Energia insuficiente (${energyCost} ⚡)!`);
+                    return;
+                }
             }
+
             if (this.activeCooldownTimer > 0) return;
 
-            // Se estiver na Torre em combate com monstros:
+            // Consumo de recurso
+            if (isArcane) {
+                this.state.hero.mana -= manaCost;
+            } else {
+                this.state.hero.energy -= energyCost;
+            }
+
+            // Cooldown ajustado por utilidade do ladrão se houver
+            let cd = 8;
+            if (te.thief_utility) cd = Math.max(4, cd * (1 - te.thief_utility * 0.15));
+            this.activeCooldownTimer = cd;
+
+            // Cálculo de multiplicador e atributo base
+            let baseStat = this.state.derived.str;
+            let mult = 3;
+            if (te.brs_focus_boost) mult += te.brs_focus_boost * 1;
+            if (te.mag_focus_boost) {
+                baseStat = this.state.derived.int;
+                mult = 3 + te.mag_focus_boost * 1;
+            }
+            if (te.thf_focus_boost) mult = (3 + te.thf_focus_boost * 0.8) * 1.5; // crítico letal
+
+            // Paladino: Baluarte soma defesa ao ataque
+            let bonusDefDmg = 0;
+            if (te.paladin_bastion) bonusDefDmg = Math.floor(this.state.derived.def * te.paladin_bastion * 0.40);
+
+            // Torre em combate
             if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
                 const tm = this.state.tower.monster;
-                this.state.hero.energy -= 30;
-                this.activeCooldownTimer = 8;
-
-                const mult = (this.state.tower.heroDmgMult || 1.0);
-                const dmg = Math.floor(this.state.derived.str * 3 * mult * (0.9 + Math.random() * 0.2));
+                const towerMult = (this.state.tower.heroDmgMult || 1.0);
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * towerMult * (0.9 + Math.random() * 0.2));
                 tm.hp -= dmg;
                 tm.isHit = true;
                 tm.hitTimer = 0.5;
 
-                this.state.tower.logs.unshift(`⚡ Ataque Concentrado devastou ${tm.name} causando ${dmg} de dano!`);
-                this.addLog(`⚡ Ataque Concentrado na Torre: -${dmg} HP no ${tm.name}!`, 'level');
+                const name = isArcane ? 'Transmutação Arcana' : 'Ataque Concentrado';
+                this.state.tower.logs.unshift(`⚡ ${name} atingiu ${tm.name} causando ${dmg} de dano!`);
+                this.addLog(`⚡ ${name} na Torre: -${dmg} HP no ${tm.name}!`, 'level');
 
                 if (tm.hp <= 0) {
                     handleTowerMonsterKill(this.state);
@@ -786,18 +835,15 @@ export function gameData() {
                 return;
             }
 
-            // Se estiver na Batalha Dedicada de Cerco da Vila:
+            // Cerco da Vila
             if (this.state.villageSiege?.active && this.state.villageSiege?.inBattle && this.state.villageSiege.monster) {
                 const sm = this.state.villageSiege.monster;
-                this.state.hero.energy -= 30;
-                this.activeCooldownTimer = 8;
-
-                const dmg = Math.floor(this.state.derived.str * 3 * (0.9 + Math.random() * 0.2));
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * (0.9 + Math.random() * 0.2));
                 sm.hp -= dmg;
                 sm.isHit = true;
                 sm.hitTimer = 0.5;
 
-                this.addLog(`⚡ Ataque Concentrado no General Invasor: -${dmg} HP!`, 'level');
+                this.addLog(`⚡ Ataque Concentrado no Invasor: -${dmg} HP!`, 'level');
 
                 if (sm.hp <= 0) {
                     sm.hp = 0;
@@ -812,12 +858,9 @@ export function gameData() {
                 return;
             }
 
-            // Se estiver em Exploração:
+            // Exploração regular
             if (this.state.isExploring && this.state.monster) {
-                this.state.hero.energy -= 30;
-                this.activeCooldownTimer = 8;
-
-                const dmg = Math.floor(this.state.derived.str * 3 * (0.9 + Math.random() * 0.2));
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * (0.9 + Math.random() * 0.2));
                 this.state.monster.hp -= dmg;
                 this.state.monster.isHit = true;
                 this.state.monster.hitTimer = 0.5;
@@ -825,7 +868,8 @@ export function gameData() {
                 const f = makeHeroDmgFloat(this.canvas, dmg, true);
                 if (f) this.pushCombatFloat(f);
 
-                this.addLog(`⚡ Ataque Concentrado em ${this.state.monster.name}: -${dmg} HP!`, 'level');
+                const name = isArcane ? 'Transmutação Arcana' : 'Ataque Concentrado';
+                this.addLog(`⚡ ${name} em ${this.state.monster.name}: -${dmg} HP!`, 'level');
 
                 if (this.state.monster.hp <= 0) {
                     this._killMonster();
@@ -834,23 +878,40 @@ export function gameData() {
         },
 
         // ==========================================
-        // HABILIDADE ATIVA — Cura Espontânea
+        // HABILIDADE ATIVA — Cura Espontânea (Modificada pela Árvore)
         // ==========================================
 
         useQuickHeal() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
-            if ((this.state.hero.mana || 0) < 30) {
-                this.addLog('Mana insuficiente para Cura Espontânea! (30 🧪)', 'danger');
-                this.showNotification('Mana insuficiente (30 🧪)!');
+            const te = getTreeEffects(this.state);
+            const manaCost = Math.max(15, 30 - (te.pal_heal_boost ? te.pal_heal_boost * 3 : 0));
+
+            if ((this.state.hero.mana || 0) < manaCost) {
+                this.addLog(`Mana insuficiente para Cura Espontânea! (${manaCost} 🧪)`, 'danger');
+                this.showNotification(`Mana insuficiente (${manaCost} 🧪)!`);
                 return;
             }
             if (this.healCooldownTimer > 0) return;
 
-            this.state.hero.mana -= 30;
-            this.healCooldownTimer = 12;
+            this.state.hero.mana -= manaCost;
 
-            const healAmt = Math.floor(this.state.derived.hpMax * 0.25);
+            let cd = 12;
+            if (te.thief_utility) cd = Math.max(6, cd * (1 - te.thief_utility * 0.15));
+            this.healCooldownTimer = cd;
+
+            let healPct = 0.25;
+            if (te.pal_heal_boost) healPct += te.pal_heal_boost * 0.10;
+            if (te.berserker_utility) healPct += te.berserker_utility * 0.10;
+
+            const healAmt = Math.floor(this.state.derived.hpMax * healPct);
             this.state.hero.hp = Math.min(this.state.derived.hpMax, (this.state.hero.hp || 0) + healAmt);
+
+            // Mago Arcano: Canalização Etérea restaura Mana junto com HP
+            if (te.mage_utility) {
+                const manaRestore = te.mage_utility * 20;
+                this.state.hero.mana = Math.min(this.state.derived.manaMax, (this.state.hero.mana || 0) + manaRestore);
+                this.addLog(`✨ Canalização Etérea restaurou +${manaRestore} 🧪 de Mana!`, 'level');
+            }
 
             if (this.canvas) {
                 const f = makeSpecialFloat(this.canvas, `+${healAmt} HP`, '#4ade80');
@@ -1636,14 +1697,30 @@ export function gameData() {
         },
 
         // ==========================================
-        // ÁRVORE DE HABILIDADES
+        // ÁRVORE DE HABILIDADES & TALENTOS (Fase 4A)
         // ==========================================
 
         buyTreeNode(nodeId) {
             const result = buyTreeNode(this.state, nodeId);
             if (result.ok) {
+                if (!this.state.hero._treeSkills) this.state.hero._treeSkills = {};
+                this.state.hero._treeSkills = this.state.treeSkills;
                 this.recalcStats();
                 this.addLog(`🌳 ${result.msg}`, 'prestige');
+                this.showNotification(result.msg);
+                this.saveGame();
+            } else {
+                this.showNotification(result.msg);
+            }
+        },
+
+        respecSkillTree() {
+            const result = respecSkillTree(this.state);
+            if (result.ok) {
+                if (!this.state.hero._treeSkills) this.state.hero._treeSkills = {};
+                this.state.hero._treeSkills = this.state.treeSkills;
+                this.recalcStats();
+                this.addLog(`🔄 ${result.msg}`, 'prestige');
                 this.showNotification(result.msg);
                 this.saveGame();
             } else {
@@ -1661,13 +1738,19 @@ export function gameData() {
             const node = SKILL_TREE[spec].nodes.find(n => n.id === nodeId);
             if (!node) return '';
             const lvl = this.getTreeNodeLevel(nodeId);
-            return node.descFn(lvl > 0 ? lvl : 1); // mostra descrição do próximo nível se zerado
+            return node.descFn(lvl > 0 ? lvl : 1);
         },
 
-        getTreeNodes(branch) {
+        getTreeNodesByTier(tier) {
             const spec = this.state.hero.specialization;
             if (!spec || !SKILL_TREE[spec]) return [];
-            return SKILL_TREE[spec].nodes.filter(n => n.branch === branch);
+            return SKILL_TREE[spec].nodes.filter(n => n.tier === tier);
+        },
+
+        getAllTreeNodes() {
+            const spec = this.state.hero.specialization;
+            if (!spec || !SKILL_TREE[spec]) return [];
+            return SKILL_TREE[spec].nodes;
         },
 
         isTreeNodeAvailable(node) {
@@ -1676,88 +1759,288 @@ export function gameData() {
         },
 
         // ==========================================
-        // ATIVOS DESBLOQUEADOS PELA ÁRVORE
+        // ATIVOS DE CLASSE (Slot 3 Dinâmico)
         // ==========================================
 
-        /** Brado de Guerra (Berserker brs_a2) — reduz velocidade de ataque inimigo */
-        useWarCry() {
-            if (this.state.hero.isDead) return;
-            const lvl = this.state.treeSkills?.brs_a2 || 0;
-            if (lvl < 1) { this.showNotification('Desbloqueie Brado de Guerra na Árvore!'); return; }
-            if ((this.state.hero.energy || 0) < 30) { this.showNotification('Energia insuficiente (30⚡)!'); return; }
-            if (this.warCryCooldownTimer > 0) return;
-            this.state.hero.energy -= 30;
-            this.warCryCooldownTimer = 15;
-            const reduction = lvl * 0.20;
-            if (this.state.monster) this.state.monster.warCryReduction = reduction;
-            if (this.state.tower?.monster) this.state.tower.monster.warCryReduction = reduction;
-            this.addLog(`🧨 Brado de Guerra! Inimigo ataca ${(reduction * 100).toFixed(0)}% mais lento por 5s!`, 'level');
-            this.showNotification('Brado de Guerra!');
-            setTimeout(() => {
-                if (this.state.monster) this.state.monster.warCryReduction = 0;
-                if (this.state.tower?.monster) this.state.tower.monster.warCryReduction = 0;
-            }, 5000);
+        getClassActiveSkillInfo() {
+            const spec = this.state.hero?.specialization;
+            if (!spec) return { unlocked: false };
+
+            if (spec === 'berserker') {
+                const lvl = this.state.treeSkills?.brs_act || 0;
+                return {
+                    unlocked: lvl >= 1,
+                    id: 'brs_act',
+                    name: 'Golpe Devastador',
+                    icon: 'fa-burst',
+                    color: '#ef4444',
+                    bgClass: 'bg-red-950/70 hover:bg-red-900/80 border-red-800/60 hover:border-red-600 text-red-300',
+                    desc: `${4 + lvl}× Dano · -50% Def`,
+                    costText: '50 ⚡',
+                    costType: 'energy',
+                    costVal: 50,
+                    cooldownTimer: this.devastatingStrikeTimer || 0,
+                    maxCooldown: 14,
+                };
+            }
+            if (spec === 'paladin') {
+                const lvl = this.state.treeSkills?.pal_act || 0;
+                return {
+                    unlocked: lvl >= 1,
+                    id: 'pal_act',
+                    name: 'Escudo Divino',
+                    icon: 'fa-shield-halved',
+                    color: '#facc15',
+                    bgClass: 'bg-amber-950/70 hover:bg-amber-900/80 border-amber-800/60 hover:border-amber-600 text-amber-300',
+                    desc: `Imune por ${4 + lvl}s`,
+                    costText: '40 🧪',
+                    costType: 'mana',
+                    costVal: 40,
+                    cooldownTimer: this.divineShieldTimer || 0,
+                    maxCooldown: 25,
+                };
+            }
+            if (spec === 'arcane_mage') {
+                const lvl = this.state.treeSkills?.mag_act || 0;
+                return {
+                    unlocked: lvl >= 1,
+                    id: 'mag_act',
+                    name: 'Meteoro Arcano',
+                    icon: 'fa-meteor',
+                    color: '#a855f7',
+                    bgClass: 'bg-purple-950/70 hover:bg-purple-900/80 border-purple-800/60 hover:border-purple-600 text-purple-300',
+                    desc: `${6 + lvl * 2}× INT Dano Verdadeiro`,
+                    costText: '80 🧪',
+                    costType: 'mana',
+                    costVal: 80,
+                    cooldownTimer: this.arcaneMeteorTimer || 0,
+                    maxCooldown: 18,
+                };
+            }
+            if (spec === 'shadow_thief') {
+                const lvl = this.state.treeSkills?.thf_act || 0;
+                return {
+                    unlocked: lvl >= 1,
+                    id: 'thf_act',
+                    name: 'Emboscada Letal',
+                    icon: 'fa-skull',
+                    color: '#10b981',
+                    bgClass: 'bg-emerald-950/70 hover:bg-emerald-900/80 border-emerald-800/60 hover:border-emerald-600 text-emerald-300',
+                    desc: `${4 + lvl}× Dano Crítico + Veneno`,
+                    costText: '35 ⚡',
+                    costType: 'energy',
+                    costVal: 35,
+                    cooldownTimer: this.ambushTimer || 0,
+                    maxCooldown: 12,
+                };
+            }
+            return { unlocked: false };
         },
 
-        /** Barreira Sagrada (Paladino pal_a2) — escudo que absorve dano */
-        useHolyBarrier() {
-            if (this.state.hero.isDead) return;
-            const lvl = this.state.treeSkills?.pal_a2 || 0;
-            if (lvl < 1) { this.showNotification('Desbloqueie Barreira Sagrada na Árvore!'); return; }
-            if ((this.state.hero.mana || 0) < 30) { this.showNotification('Mana insuficiente (30🧪)!'); return; }
-            if (this.holyBarrierCooldownTimer > 0) return;
-            this.state.hero.mana -= 30;
-            this.holyBarrierCooldownTimer = 20;
-            this.holyBarrierActiveTimer = 6;
-            this.holyBarrierShieldHp = Math.floor(this.state.derived.hpMax * lvl * 0.20);
-            this.addLog(`🛡️ Barreira Sagrada ativada! Escudo de ${this.holyBarrierShieldHp} HP por 6s!`, 'level');
-            this.showNotification(`Barreira Sagrada: ${this.holyBarrierShieldHp} HP de escudo!`);
+        useClassActiveSkill() {
+            const spec = this.state.hero?.specialization;
+            if (spec === 'berserker') return this.useDevastatingStrike();
+            if (spec === 'paladin') return this.useDivineShield();
+            if (spec === 'arcane_mage') return this.useArcaneMeteor();
+            if (spec === 'shadow_thief') return this.useAmbush();
         },
 
-        /** Nova Arcana (Mago mag_a2) — explosão mágica de área */
-        useArcaneNova() {
-            if (this.state.hero.isDead) return;
-            const lvl = this.state.treeSkills?.mag_a2 || 0;
-            if (lvl < 1) { this.showNotification('Desbloqueie Nova Arcana na Árvore!'); return; }
-            if ((this.state.hero.mana || 0) < 40) { this.showNotification('Mana insuficiente (40🧪)!'); return; }
-            if (this.arcaneNovaCooldownTimer > 0) return;
+        /** Golpe Devastador (Berserker brs_act) */
+        useDevastatingStrike() {
+            if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
+            const lvl = this.state.treeSkills?.brs_act || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Golpe Devastador na Árvore!'); return; }
+            if ((this.state.hero.energy || 0) < 50) {
+                this.addLog('Energia insuficiente para Golpe Devastador! (50 ⚡)', 'danger');
+                this.showNotification('Energia insuficiente (50 ⚡)!');
+                return;
+            }
+            if (this.devastatingStrikeTimer > 0) return;
+
+            const target = this.state.tower?.inBattle && this.state.tower.monster
+                ? this.state.tower.monster
+                : (this.state.villageSiege?.active && this.state.villageSiege.inBattle && this.state.villageSiege.monster
+                    ? this.state.villageSiege.monster
+                    : (this.state.isExploring ? this.state.monster : null));
+
+            if (!target) {
+                this.showNotification('Nenhum inimigo ao alcance!');
+                return;
+            }
+
+            this.state.hero.energy -= 50;
+            this.devastatingStrikeTimer = 14;
+            this.state.hero.debuffDefenseTimer = 10;
+            this.recalcStats();
+
+            const dmg = Math.floor(this.state.derived.str * (4 + lvl) * (0.9 + Math.random() * 0.2));
+            target.hp -= dmg;
+            target.isHit = true;
+            target.hitTimer = 0.5;
+
+            if (this.canvas) {
+                const f = makeSpecialFloat(this.canvas, `💥 GOLPE DEVASTADOR! -${dmg}`, '#ef4444');
+                if (f) this.pushCombatFloat(f);
+            }
+
+            this.addLog(`💥 Golpe Devastador despedaçou o inimigo causando ${dmg} de dano! (-50% Defesa por 10s)`, 'level');
+            this.showNotification(`Golpe Devastador: -${dmg} Dano!`);
+
+            if (target.hp <= 0) {
+                if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
+                else if (this.state.villageSiege?.inBattle) {
+                    target.hp = 0;
+                    const vicRes = resolveSiegeVictory(this.state);
+                    this.state.villageSiege.inBattle = false;
+                    this.state.villageSiege.active = false;
+                    this.siegeModalOpen = false;
+                    this.addLog(vicRes.msg, 'prestige');
+                    this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
+                } else if (this.state.isExploring) {
+                    this._killMonster();
+                }
+            }
+        },
+
+        /** Escudo Divino (Paladino pal_act) */
+        useDivineShield() {
+            if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
+            const lvl = this.state.treeSkills?.pal_act || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Escudo Divino na Árvore!'); return; }
+            if ((this.state.hero.mana || 0) < 40) {
+                this.addLog('Mana insuficiente para Escudo Divino! (40 🧪)', 'danger');
+                this.showNotification('Mana insuficiente (40 🧪)!');
+                return;
+            }
+            if (this.divineShieldTimer > 0) return;
+
             this.state.hero.mana -= 40;
-            this.arcaneNovaCooldownTimer = 18;
-            const dmg = Math.floor(this.state.derived.str * lvl * 0.25);
-            const target = this.state.tower?.monster || this.state.monster;
-            if (target) {
-                target.hp -= dmg;
-                target.isHit = true; target.hitTimer = 0.5;
-                this.addLog(`✨ Nova Arcana explode causando ${dmg} de dano àrcano!`, 'level');
-                if (target.hp <= 0) {
-                    if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
-                    else if (this.state.isExploring) this._killMonster();
-                }
+            this.divineShieldTimer = 25;
+            const duration = 4 + lvl;
+            this.state.hero.divineShieldTimer = duration;
+
+            if (this.canvas) {
+                const f = makeSpecialFloat(this.canvas, `🛡️ ESCUDO DIVINO (${duration}s)`, '#facc15');
+                if (f) this.pushCombatFloat(f);
             }
-            this.showNotification(`Nova Arcana: ${dmg} dano!`);
+
+            this.addLog(`🛡️ Escudo Divino ativado! Você está 100% IMUNE a todo dano por ${duration}s!`, 'level');
+            this.showNotification(`Escudo Divino ativado por ${duration}s!`);
         },
 
-        /** Golpe Duplo (Ladrão thf_a2) — dois ataques rápidos */
-        useDoubleStrike() {
-            if (this.state.hero.isDead) return;
-            const lvl = this.state.treeSkills?.thf_a2 || 0;
-            if (lvl < 1) { this.showNotification('Desbloqueie Golpe Duplo na Árvore!'); return; }
-            if ((this.state.hero.energy || 0) < 5) { this.showNotification('Energia insuficiente (5⚡)!'); return; }
-            if (this.doubleStrikeCooldownTimer > 0) return;
-            this.state.hero.energy -= 5;
-            this.doubleStrikeCooldownTimer = 10;
-            const target = this.state.tower?.monster || this.state.monster;
-            if (target) {
-                const dmgPerHit = Math.floor(this.state.derived.str * lvl * 0.60);
-                target.hp -= dmgPerHit * 2;
-                target.isHit = true; target.hitTimer = 0.5;
-                this.addLog(`👊 Golpe Duplo! 2 × ${dmgPerHit} = ${dmgPerHit * 2} dano total!`, 'level');
-                if (target.hp <= 0) {
-                    if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
-                    else if (this.state.isExploring) this._killMonster();
+        /** Meteoro Arcano (Mago mag_act) */
+        useArcaneMeteor() {
+            if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
+            const lvl = this.state.treeSkills?.mag_act || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Meteoro Arcano na Árvore!'); return; }
+            if ((this.state.hero.mana || 0) < 80) {
+                this.addLog('Mana insuficiente para Meteoro Arcano! (80 🧪)', 'danger');
+                this.showNotification('Mana insuficiente (80 🧪)!');
+                return;
+            }
+            if (this.arcaneMeteorTimer > 0) return;
+
+            const target = this.state.tower?.inBattle && this.state.tower.monster
+                ? this.state.tower.monster
+                : (this.state.villageSiege?.active && this.state.villageSiege.inBattle && this.state.villageSiege.monster
+                    ? this.state.villageSiege.monster
+                    : (this.state.isExploring ? this.state.monster : null));
+
+            if (!target) {
+                this.showNotification('Nenhum inimigo ao alcance!');
+                return;
+            }
+
+            this.state.hero.mana -= 80;
+            this.arcaneMeteorTimer = 18;
+
+            const dmg = Math.floor(this.state.derived.int * (6 + lvl * 2) * (0.9 + Math.random() * 0.2));
+            target.hp -= dmg;
+            target.isHit = true;
+            target.hitTimer = 0.5;
+
+            if (this.canvas) {
+                const f = makeSpecialFloat(this.canvas, `☄️ METEORO ARCANO! -${dmg}`, '#c084fc');
+                if (f) this.pushCombatFloat(f);
+            }
+
+            this.addLog(`☄️ Meteoro Arcano caiu dos céus incinerando o inimigo com ${dmg} de Dano Verdadeiro!`, 'level');
+            this.showNotification(`Meteoro Arcano: -${dmg} Dano!`);
+
+            if (target.hp <= 0) {
+                if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
+                else if (this.state.villageSiege?.inBattle) {
+                    target.hp = 0;
+                    const vicRes = resolveSiegeVictory(this.state);
+                    this.state.villageSiege.inBattle = false;
+                    this.state.villageSiege.active = false;
+                    this.siegeModalOpen = false;
+                    this.addLog(vicRes.msg, 'prestige');
+                    this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
+                } else if (this.state.isExploring) {
+                    this._killMonster();
                 }
             }
-            this.showNotification('Golpe Duplo!');
+        },
+
+        /** Emboscada Letal (Ladrão thf_act) */
+        useAmbush() {
+            if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
+            const lvl = this.state.treeSkills?.thf_act || 0;
+            if (lvl < 1) { this.showNotification('Desbloqueie Emboscada Letal na Árvore!'); return; }
+            if ((this.state.hero.energy || 0) < 35) {
+                this.addLog('Energia insuficiente para Emboscada Letal! (35 ⚡)', 'danger');
+                this.showNotification('Energia insuficiente (35 ⚡)!');
+                return;
+            }
+            if (this.ambushTimer > 0) return;
+
+            const target = this.state.tower?.inBattle && this.state.tower.monster
+                ? this.state.tower.monster
+                : (this.state.villageSiege?.active && this.state.villageSiege.inBattle && this.state.villageSiege.monster
+                    ? this.state.villageSiege.monster
+                    : (this.state.isExploring ? this.state.monster : null));
+
+            if (!target) {
+                this.showNotification('Nenhum inimigo ao alcance!');
+                return;
+            }
+
+            this.state.hero.energy -= 35;
+            this.ambushTimer = 12;
+
+            const dmg = Math.floor(this.state.derived.str * (4 + lvl) * 1.5);
+            target.hp -= dmg;
+            target.isHit = true;
+            target.hitTimer = 0.5;
+
+            // Aplica veneno
+            target.poisoned = true;
+            target.poisonTicks = 5;
+            target.poisonDmg = Math.max(2, Math.floor(this.state.derived.str * lvl * 0.15));
+
+            if (this.canvas) {
+                const f = makeSpecialFloat(this.canvas, `🗡️ EMBOSCADA CRÍTICA! -${dmg}`, '#34d399');
+                if (f) this.pushCombatFloat(f);
+            }
+
+            this.addLog(`🗡️ Emboscada Crítica desferiu ${dmg} de dano letal e envenenou o inimigo!`, 'level');
+            this.showNotification(`Emboscada Crítica: -${dmg} Dano!`);
+
+            if (target.hp <= 0) {
+                if (this.state.tower?.inBattle) { handleTowerMonsterKill(this.state); this._checkLevelUp(); }
+                else if (this.state.villageSiege?.inBattle) {
+                    target.hp = 0;
+                    const vicRes = resolveSiegeVictory(this.state);
+                    this.state.villageSiege.inBattle = false;
+                    this.state.villageSiege.active = false;
+                    this.siegeModalOpen = false;
+                    this.addLog(vicRes.msg, 'prestige');
+                    this.showNotification('🏆 Invasão da Vila Repelida com Sucesso!');
+                } else if (this.state.isExploring) {
+                    this._killMonster();
+                }
+            }
         },
 
         // resetHeroSpecialization() removido na Fase 2 do GDD:
@@ -2319,6 +2602,10 @@ export function gameData() {
             // Cooldowns
             this.activeCooldownTimer = 0;
             this.healCooldownTimer = 0;
+            this.devastatingStrikeTimer = 0;
+            this.divineShieldTimer = 0;
+            this.arcaneMeteorTimer = 0;
+            this.ambushTimer = 0;
 
             const mins = Math.floor(sec / 60);
             const secs = Math.floor(sec % 60);
@@ -2361,17 +2648,17 @@ export function gameData() {
                     this.healCooldownTimer = Math.max(0, this.healCooldownTimer - dt);
                 }
                 // Cooldowns de ativos desbloqueados pela Árvore
-                if (this.warCryCooldownTimer > 0) this.warCryCooldownTimer = Math.max(0, this.warCryCooldownTimer - dt);
-                if (this.holyBarrierCooldownTimer > 0) this.holyBarrierCooldownTimer = Math.max(0, this.holyBarrierCooldownTimer - dt);
-                if (this.arcaneNovaCooldownTimer > 0) this.arcaneNovaCooldownTimer = Math.max(0, this.arcaneNovaCooldownTimer - dt);
-                if (this.doubleStrikeCooldownTimer > 0) this.doubleStrikeCooldownTimer = Math.max(0, this.doubleStrikeCooldownTimer - dt);
-                // Barreira Sagrada: decai e expira
-                if (this.holyBarrierActiveTimer > 0) {
-                    this.holyBarrierActiveTimer = Math.max(0, this.holyBarrierActiveTimer - dt);
-                    if (this.holyBarrierActiveTimer <= 0) {
-                        this.holyBarrierShieldHp = 0;
-                        this.addLog('⚡ Barreira Sagrada expirou!', 'narrative');
-                    }
+                if (this.devastatingStrikeTimer > 0) this.devastatingStrikeTimer = Math.max(0, this.devastatingStrikeTimer - dt);
+                if (this.divineShieldTimer > 0) this.divineShieldTimer = Math.max(0, this.divineShieldTimer - dt);
+                if (this.arcaneMeteorTimer > 0) this.arcaneMeteorTimer = Math.max(0, this.arcaneMeteorTimer - dt);
+                if (this.ambushTimer > 0) this.ambushTimer = Math.max(0, this.ambushTimer - dt);
+
+                // Timers de buffs / debuffs ativos no herói
+                if (this.state.hero?.debuffDefenseTimer > 0) {
+                    this.state.hero.debuffDefenseTimer = Math.max(0, this.state.hero.debuffDefenseTimer - dt);
+                }
+                if (this.state.hero?.divineShieldTimer > 0) {
+                    this.state.hero.divineShieldTimer = Math.max(0, this.state.hero.divineShieldTimer - dt);
                 }
 
                 // Recuperação / respawn (regen normal baseada nos atributos)

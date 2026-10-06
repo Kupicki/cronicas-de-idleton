@@ -43,6 +43,35 @@ export function buyTreeNode(state, nodeId) {
     return { ok: true, msg: `${node.name} evoluído para Nível ${state.treeSkills[nodeId]}!` };
 }
 
+/**
+ * Redefine todos os talentos da árvore do jogador e devolve os pontos investidos.
+ */
+export function respecSkillTree(state) {
+    const spec = state.hero?.specialization;
+    if (!spec) return { ok: false, msg: 'Nenhuma classe selecionada.' };
+    const treeDef = SKILL_TREE[spec];
+    if (!treeDef) return { ok: false, msg: 'Classe inválida.' };
+
+    const bought = state.treeSkills || {};
+    let refundedPoints = 0;
+
+    Object.entries(bought).forEach(([nodeId, lvl]) => {
+        const node = treeDef.nodes.find(n => n.id === nodeId);
+        if (node && lvl > 0) {
+            refundedPoints += lvl * (node.costPerLevel || 1);
+        }
+    });
+
+    state.treeSkills = {};
+    state.hero.treePoints = (state.hero.treePoints || 0) + refundedPoints;
+
+    return {
+        ok: true,
+        points: refundedPoints,
+        msg: `Talentos redefinidos com sucesso! ${refundedPoints} ponto(s) devolvidos.`
+    };
+}
+
 // ---- LOG ----
 
 export function createLogEntry(text, type = 'narrative') {
@@ -79,7 +108,7 @@ export function recalcDerived(state) {
     // Regeneração de HP: 0.5 HP/s por ponto alocado em Regeneração
     let regen = reg * 0.5;
 
-    // Habilidades passivas
+    // Habilidades passivas clássicas
     if (skills?.flat_resilience)  hpMax += skills.flat_resilience.level  * 20;
     if (skills?.flat_strength)    str   += skills.flat_strength.level    * 5;
     if (skills?.thick_hide)       def   += skills.thick_hide.level       * 5;
@@ -102,13 +131,27 @@ export function recalcDerived(state) {
     if (activePet === 'salamandra') regen += 0.5;
     if (activePet === 'raposa')     lck   += 2;
 
-    // Bônus da Árvore de Habilidades (GDD Fase 2.2)
+    // Bônus da Árvore de Habilidades (GDD Fase 2.2 + Expansão 4A)
     const te = getTreeEffects(state);
-    if (te.hp_pct)           hpMax  = Math.floor(hpMax  * (1 + te.hp_pct  * 0.05));
-    if (te.aura_regen)       regen  += te.aura_regen * 0.3;
-    if (te.iron_skin)        def    = Math.floor(def   * (1 + te.iron_skin * 0.04));
-    if (te.dodge_bonus)      lck   += te.dodge_bonus * 2; // esquiva via sorte
-    // mana_max_bonus e mana_regen_bonus aplicados após declaração de manaMax/manaRegen (abaixo)
+    if (te.iron_skin) {
+        def   = Math.floor(def   * (1 + te.iron_skin * 0.06));
+        hpMax = Math.floor(hpMax * (1 + te.iron_skin * 0.05));
+    }
+    if (te.paladin_bastion) {
+        def = Math.floor(def * (1 + te.paladin_bastion * 0.08));
+    }
+    if (te.aura_of_light) {
+        regen = regen * (1 + te.aura_of_light * 0.15);
+    }
+    if (te.shadow_step_boost) {
+        agi = Math.floor(agi * (1 + te.shadow_step_boost * 0.06));
+        lck += te.shadow_step_boost * 2;
+    }
+
+    // Debuff temporário do Golpe Devastador (-50% de defesa)
+    if (state.hero?.debuffDefenseTimer > 0) {
+        def = Math.max(1, Math.floor(def * 0.5));
+    }
 
     // Velocidade de ataque (GDD: base 2.0s - AGI * 0.05s)
     let atkSpeed = Math.max(0.2, 2.0 - (agi * 0.05));
@@ -121,9 +164,16 @@ export function recalcDerived(state) {
     const energyRegen = 0.5 + (ene * 0.5);
     let manaMax     = 25 + (int * 5);
     let manaRegen   = 0.2 + (int * 0.1);
-    // Bônus de mana da Árvore (aplicados após declaração)
-    if (te.mana_max_bonus)   manaMax   += te.mana_max_bonus * 15;
-    if (te.mana_regen_bonus) manaRegen += te.mana_regen_bonus * 0.2;
+
+    // Bônus de mana da Árvore (Mago Arcano)
+    if (te.mana_overload) {
+        manaMax   += te.mana_overload * 25;
+        manaRegen += te.mana_overload * 0.4;
+    }
+    if (te.cosmic_mind) {
+        // Converte parte da Mana Máxima em força de ataque arcano
+        str += Math.floor(manaMax * (te.cosmic_mind * 0.10));
+    }
 
     return { hpMax, str, def, int, agi, lck, per, regen, atkSpeed, energyMax, manaMax, energyRegen, manaRegen };
 }
