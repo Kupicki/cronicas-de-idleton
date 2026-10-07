@@ -3,7 +3,7 @@
 // ==========================================
 
 import { trackQuestProgress } from './quests.js';
-import { SKILL_TREE, getTreeEffects } from './constants.js';
+import { SKILL_TREE, getTreeEffects, getNodeUpgradeCost, getNodeTotalInvested } from './constants.js';
 
 // getTreeEffects está em constants.js (evita dependência circular com combat.js)
 
@@ -34,8 +34,10 @@ export function buyTreeNode(state, nodeId) {
         }
     }
 
-    const cost = node.costPerLevel || 1;
-    if ((state.hero.treePoints || 0) < cost) return { ok: false, msg: `Pontos de Árvore insuficientes (custo: ${cost}).` };
+    const cost = getNodeUpgradeCost(node, currentLvl);
+    if ((state.hero.treePoints || 0) < cost) {
+        return { ok: false, msg: `Pontos de Árvore insuficientes (requer ${cost} pts).` };
+    }
 
     state.hero.treePoints = (state.hero.treePoints || 0) - cost;
     state.treeSkills[nodeId] = currentLvl + 1;
@@ -58,7 +60,7 @@ export function respecSkillTree(state) {
     Object.entries(bought).forEach(([nodeId, lvl]) => {
         const node = treeDef.nodes.find(n => n.id === nodeId);
         if (node && lvl > 0) {
-            refundedPoints += lvl * (node.costPerLevel || 1);
+            refundedPoints += getNodeTotalInvested(node, lvl);
         }
     });
 

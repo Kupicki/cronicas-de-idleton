@@ -23,6 +23,8 @@ import {
     AUTO_LOOT_ACTIONS,
     SKILL_TREE,
     getTreeEffects,
+    getNodeUpgradeCost,
+    getNodeTotalInvested,
 } from './constants.js';
 import { defaultState } from './state.js';
 import {
@@ -125,6 +127,7 @@ export function gameData() {
         specializationModalOpen: false,
         selectedSpecializationId: 'berserker',
         skillTreeOpen: false,       // modal da Árvore de Habilidades
+        selectedSkillNodeId: null,  // nó inspecionado no Altar de Talentos
         skillTreeBranch: 'active',    // aba ativa no painel: 'active'|'passive'|'utility'
         warCryCooldownTimer: 0,     // novo ativo Berserker
         holyBarrierCooldownTimer: 0,     // novo ativo Paladino
@@ -1701,6 +1704,7 @@ export function gameData() {
         // ==========================================
 
         buyTreeNode(nodeId) {
+            this.selectedSkillNodeId = nodeId;
             const result = buyTreeNode(this.state, nodeId);
             if (result.ok) {
                 if (!this.state.hero._treeSkills) this.state.hero._treeSkills = {};
@@ -1708,6 +1712,7 @@ export function gameData() {
                 this.recalcStats();
                 this.addLog(`🌳 ${result.msg}`, 'prestige');
                 this.showNotification(result.msg);
+                if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
                 this.saveGame();
             } else {
                 this.showNotification(result.msg);
@@ -1732,8 +1737,16 @@ export function gameData() {
             return this.state.treeSkills?.[nodeId] || 0;
         },
 
+        isTreeNodeMaxed(nodeId) {
+            const spec = this.state.hero?.specialization;
+            if (!spec || !SKILL_TREE[spec]) return false;
+            const node = SKILL_TREE[spec].nodes.find(n => n.id === nodeId);
+            if (!node) return false;
+            return this.getTreeNodeLevel(nodeId) >= node.maxLevel;
+        },
+
         getTreeNodeDesc(nodeId) {
-            const spec = this.state.hero.specialization;
+            const spec = this.state.hero?.specialization;
             if (!spec || !SKILL_TREE[spec]) return '';
             const node = SKILL_TREE[spec].nodes.find(n => n.id === nodeId);
             if (!node) return '';
@@ -1741,21 +1754,53 @@ export function gameData() {
             return node.descFn(lvl > 0 ? lvl : 1);
         },
 
+        getNodeCost(nodeId) {
+            const spec = this.state.hero?.specialization;
+            if (!spec || !SKILL_TREE[spec]) return 1;
+            const node = SKILL_TREE[spec].nodes.find(n => n.id === nodeId);
+            if (!node) return 1;
+            const currentLvl = this.getTreeNodeLevel(nodeId);
+            return getNodeUpgradeCost(node, currentLvl);
+        },
+
         getTreeNodesByTier(tier) {
-            const spec = this.state.hero.specialization;
+            const spec = this.state.hero?.specialization;
             if (!spec || !SKILL_TREE[spec]) return [];
             return SKILL_TREE[spec].nodes.filter(n => n.tier === tier);
         },
 
+        getBranchNodes(branch) {
+            const spec = this.state.hero?.specialization;
+            if (!spec || !SKILL_TREE[spec]) return [];
+            return SKILL_TREE[spec].nodes
+                .filter(n => n.branch === branch)
+                .sort((a, b) => a.tier - b.tier);
+        },
+
         getAllTreeNodes() {
-            const spec = this.state.hero.specialization;
+            const spec = this.state.hero?.specialization;
             if (!spec || !SKILL_TREE[spec]) return [];
             return SKILL_TREE[spec].nodes;
         },
 
         isTreeNodeAvailable(node) {
-            if (!node.requires) return true;
+            if (!node || !node.requires) return true;
             return (this.state.treeSkills?.[node.requires] || 0) >= 1;
+        },
+
+        selectSkillNode(nodeId) {
+            this.selectedSkillNodeId = nodeId;
+        },
+
+        getSelectedNode() {
+            const spec = this.state.hero?.specialization;
+            if (!spec || !SKILL_TREE[spec]) return null;
+            if (this.selectedSkillNodeId) {
+                const found = SKILL_TREE[spec].nodes.find(n => n.id === this.selectedSkillNodeId);
+                if (found) return found;
+            }
+            // Retorna o primeiro nó de combate por padrão
+            return SKILL_TREE[spec].nodes[0] || null;
         },
 
         // ==========================================

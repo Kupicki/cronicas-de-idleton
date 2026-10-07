@@ -675,47 +675,46 @@ export const SKILL_TREE = {
         name: 'Berserker',
         role: 'DPS Sangrento & Fúria',
         nodes: [
-            // ── TIER 1: FUNDAMENTOS (Custo: 1 pt) ──────────────────────
+            // ── RAMO DE COMBATE & ATIVAS (Esquerda) ────────────────────
             {
-                id: 'brs_p1', name: 'Fúria Sangrenta', type: 'passiva', tier: 1,
-                icon: 'fa-fire', color: '#ef4444', maxLevel: 3, costPerLevel: 1,
-                requires: null,
-                descFn: (l) => `Aumenta o dano em +${l * 1}% a cada 2% de HP perdido. (Mais vida perdida = maior massacre)`,
-                effect: 'fury_dmg',
-            },
-            {
-                id: 'brs_a1', name: 'Golpe Brutal', type: 'basica', tier: 1,
-                icon: 'fa-khanda', color: '#f97316', maxLevel: 3, costPerLevel: 1,
+                id: 'brs_a1', name: 'Golpe Brutal', type: 'basica', tier: 1, branch: 'combat',
+                icon: 'fa-khanda', color: '#f97316', maxLevel: 3, baseCost: 1,
                 requires: null,
                 descFn: (l) => `Aprimora o Ataque Concentrado: causa +${l}× Dano (base 3× → ${3 + l}×) e consome -${l * 3}⚡ Energia.`,
                 effect: 'brs_focus_boost',
             },
-            // ── TIER 2: ESPECIALIZAÇÃO (Custo: 2 pts) ───────────────────
             {
-                id: 'brs_act', name: 'Golpe Devastador', type: 'ativa', tier: 2,
-                icon: 'fa-burst', color: '#dc2626', maxLevel: 3, costPerLevel: 2,
+                id: 'brs_act', name: 'Golpe Devastador', type: 'ativa', tier: 2, branch: 'combat',
+                icon: 'fa-burst', color: '#dc2626', maxLevel: 3, baseCost: 2,
                 requires: 'brs_a1',
                 descFn: (l) => `Nova Super Ativa: Consome 50⚡. Causa ${4 + l}× Dano devastador, mas reduz sua Defesa em 50% por 10s (CD: 14s).`,
                 effect: 'devastating_strike_unlock',
             },
             {
-                id: 'brs_p2', name: 'Pele de Aço', type: 'passiva', tier: 2,
-                icon: 'fa-shield', color: '#fb7185', maxLevel: 3, costPerLevel: 2,
-                requires: 'brs_p1',
-                descFn: (l) => `Aumenta a Defesa em +${l * 6}% e o HP Máximo em +${l * 5}%.`,
-                effect: 'iron_skin',
-            },
-            // ── TIER 3: MAESTRIA ÉPICA (Custo: 3 pts) ──────────────────
-            {
-                id: 'brs_p3', name: 'Sede de Sangue', type: 'keystone', tier: 3,
-                icon: 'fa-droplet', color: '#b91c1c', maxLevel: 2, costPerLevel: 3,
+                id: 'brs_p3', name: 'Sede de Sangue', type: 'keystone', tier: 3, branch: 'combat',
+                icon: 'fa-droplet', color: '#b91c1c', maxLevel: 2, baseCost: 3,
                 requires: 'brs_act',
                 descFn: (l) => `Cada monstro abatido acumula +${l * 5}% Dano (máx 10 stacks = +${l * 50}% Dano). Cura 5% HP por abate. Reseta ao morrer.`,
                 effect: 'bloodlust_kill_stack',
             },
+            // ── RAMO DE RESILIÊNCIA & PASSIVAS (Direita) ───────────────
             {
-                id: 'brs_u1', name: 'Resistência Selvagem', type: 'utilidade', tier: 3,
-                icon: 'fa-paw', color: '#78716c', maxLevel: 2, costPerLevel: 2,
+                id: 'brs_p1', name: 'Fúria Sangrenta', type: 'passiva', tier: 1, branch: 'passive',
+                icon: 'fa-fire', color: '#ef4444', maxLevel: 3, baseCost: 1,
+                requires: null,
+                descFn: (l) => `Aumenta o dano em +${l * 1}% a cada 2% de HP perdido. (Mais vida perdida = maior massacre)`,
+                effect: 'fury_dmg',
+            },
+            {
+                id: 'brs_p2', name: 'Pele de Aço', type: 'passiva', tier: 2, branch: 'passive',
+                icon: 'fa-shield', color: '#fb7185', maxLevel: 3, baseCost: 2,
+                requires: 'brs_p1',
+                descFn: (l) => `Aumenta a Defesa em +${l * 6}% e o HP Máximo em +${l * 5}%.`,
+                effect: 'iron_skin',
+            },
+            {
+                id: 'brs_u1', name: 'Resistência Selvagem', type: 'utilidade', tier: 3, branch: 'passive',
+                icon: 'fa-paw', color: '#78716c', maxLevel: 2, baseCost: 2,
                 requires: 'brs_p2',
                 descFn: (l) => `Cura Espontânea restaura +${l * 10}% HP. +${l * 30}min no limite de farm offline.`,
                 effect: 'berserker_utility',
@@ -728,47 +727,46 @@ export const SKILL_TREE = {
         name: 'Paladino',
         role: 'Tanque Sagrado & Retaliação',
         nodes: [
-            // ── TIER 1: FUNDAMENTOS (Custo: 1 pt) ──────────────────────
+            // ── RAMO DE COMBATE & ATIVAS (Esquerda) ────────────────────
             {
-                id: 'pal_p1', name: 'Retaliação Sagrada', type: 'passiva', tier: 1,
-                icon: 'fa-cross', color: '#facc15', maxLevel: 3, costPerLevel: 1,
+                id: 'pal_a1', name: 'Graça Restauradora', type: 'basica', tier: 1, branch: 'combat',
+                icon: 'fa-hand-holding-medical', color: '#fde047', maxLevel: 3, baseCost: 1,
+                requires: null,
+                descFn: (l) => `Aprimora a Cura Espontânea: restaura +${l * 10}% HP Máx (base 25% → ${25 + l * 10}%) e consome -${l * 3}🧪 Mana.`,
+                effect: 'pal_heal_boost',
+            },
+            {
+                id: 'pal_act', name: 'Escudo Divino', type: 'ativa', tier: 2, branch: 'combat',
+                icon: 'fa-shield-halved', color: '#eab308', maxLevel: 3, baseCost: 2,
+                requires: 'pal_a1',
+                descFn: (l) => `Nova Super Ativa: Consome 40🧪. Torna o herói 100% IMUNE a todo dano por ${4 + l}s (CD: 25s).`,
+                effect: 'divine_shield_unlock',
+            },
+            {
+                id: 'pal_p3', name: 'Aura de Luz', type: 'keystone', tier: 3, branch: 'combat',
+                icon: 'fa-sun', color: '#ca8a04', maxLevel: 2, baseCost: 3,
+                requires: 'pal_act',
+                descFn: (l) => `Aumenta Regen de HP em +${l * 15}%. Seus Mascotes e Aliados causam +${l * 20}% Dano e trazem +${l * 15}% recompensas!`,
+                effect: 'aura_of_light',
+            },
+            // ── RAMO DE RESILIÊNCIA & PASSIVAS (Direita) ───────────────
+            {
+                id: 'pal_p1', name: 'Retaliação Sagrada', type: 'passiva', tier: 1, branch: 'passive',
+                icon: 'fa-cross', color: '#facc15', maxLevel: 3, baseCost: 1,
                 requires: null,
                 descFn: (l) => `Cura ${3 + l * 2}% de todo dano recebido e reflete ${10 + l * 5}% como Dano Verdadeiro ao atacante.`,
                 effect: 'retaliation_boost',
             },
             {
-                id: 'pal_a1', name: 'Graça Restauradora', type: 'basica', tier: 1,
-                icon: 'fa-hand-holding-medical', color: '#fde047', maxLevel: 3, costPerLevel: 1,
-                requires: null,
-                descFn: (l) => `Aprimora a Cura Espontânea: restaura +${l * 10}% HP Máx (base 25% → ${25 + l * 10}%) e consome -${l * 3}🧪 Mana.`,
-                effect: 'pal_heal_boost',
-            },
-            // ── TIER 2: ESPECIALIZAÇÃO (Custo: 2 pts) ───────────────────
-            {
-                id: 'pal_act', name: 'Escudo Divino', type: 'ativa', tier: 2,
-                icon: 'fa-shield-halved', color: '#eab308', maxLevel: 3, costPerLevel: 2,
+                id: 'pal_p2', name: 'Baluarte da Fé', type: 'passiva', tier: 2, branch: 'passive',
+                icon: 'fa-shield-virus', color: '#fef08a', maxLevel: 3, baseCost: 2,
                 requires: 'pal_p1',
-                descFn: (l) => `Nova Super Ativa: Consome 40🧪. Torna o herói 100% IMUNE a todo dano por ${4 + l}s (CD: 25s).`,
-                effect: 'divine_shield_unlock',
-            },
-            {
-                id: 'pal_p2', name: 'Baluarte da Fé', type: 'passiva', tier: 2,
-                icon: 'fa-shield-virus', color: '#fef08a', maxLevel: 3, costPerLevel: 2,
-                requires: 'pal_a1',
                 descFn: (l) => `Aumenta a Armadura em +${l * 8}% e adiciona ${l * 40}% da sua Defesa ao dano do Ataque Concentrado!`,
                 effect: 'paladin_bastion',
             },
-            // ── TIER 3: MAESTRIA ÉPICA (Custo: 3 pts) ──────────────────
             {
-                id: 'pal_p3', name: 'Aura de Luz', type: 'keystone', tier: 3,
-                icon: 'fa-sun', color: '#ca8a04', maxLevel: 2, costPerLevel: 3,
-                requires: 'pal_act',
-                descFn: (l) => `Aumenta Regen de HP em +${l * 15}%. Seus Mascotes e Aliados causam +${l * 20}% Dano e trazem +${l * 15}% recompensas!`,
-                effect: 'aura_of_light',
-            },
-            {
-                id: 'pal_u1', name: 'Santuário Sagrado', type: 'utilidade', tier: 3,
-                icon: 'fa-monument', color: '#78716c', maxLevel: 2, costPerLevel: 2,
+                id: 'pal_u1', name: 'Santuário Sagrado', type: 'utilidade', tier: 3, branch: 'passive',
+                icon: 'fa-monument', color: '#78716c', maxLevel: 2, baseCost: 2,
                 requires: 'pal_p2',
                 descFn: (l) => `+${l * 40}min no limite de farm offline e regeneração de vida pós-morte 50% mais rápida.`,
                 effect: 'paladin_utility',
@@ -781,47 +779,46 @@ export const SKILL_TREE = {
         name: 'Mago Arcano',
         role: 'Dano Mágico & Mana',
         nodes: [
-            // ── TIER 1: FUNDAMENTOS (Custo: 1 pt) ──────────────────────
+            // ── RAMO DE COMBATE & ATIVAS (Esquerda) ────────────────────
             {
-                id: 'mag_p1', name: 'Explosão Arcana', type: 'passiva', tier: 1,
-                icon: 'fa-wand-magic-sparkles', color: '#a855f7', maxLevel: 3, costPerLevel: 1,
-                requires: null,
-                descFn: (l) => `Ataques básicos consomem 5 Mana para causar +${30 + l * 15}% Dano ignorando 50% da armadura inimiga.`,
-                effect: 'arcane_blast_boost',
-            },
-            {
-                id: 'mag_a1', name: 'Transmutação Arcana', type: 'basica', tier: 1,
-                icon: 'fa-bolt', color: '#c084fc', maxLevel: 3, costPerLevel: 1,
+                id: 'mag_a1', name: 'Transmutação Arcana', type: 'basica', tier: 1, branch: 'combat',
+                icon: 'fa-bolt', color: '#c084fc', maxLevel: 3, baseCost: 1,
                 requires: null,
                 descFn: (l) => `Ataque Concentrado consome 30 Mana em vez de Energia e causa dano mágico com base em INT (${3 + l}× Inteligência).`,
                 effect: 'mag_focus_boost',
             },
-            // ── TIER 2: ESPECIALIZAÇÃO (Custo: 2 pts) ───────────────────
             {
-                id: 'mag_act', name: 'Meteoro Arcano', type: 'ativa', tier: 2,
-                icon: 'fa-meteor', color: '#9333ea', maxLevel: 3, costPerLevel: 2,
+                id: 'mag_act', name: 'Meteoro Arcano', type: 'ativa', tier: 2, branch: 'combat',
+                icon: 'fa-meteor', color: '#9333ea', maxLevel: 3, baseCost: 2,
                 requires: 'mag_a1',
                 descFn: (l) => `Nova Super Ativa: Consome 80🧪. Invoca meteoro cósmico causando ${6 + l * 2}× Inteligência em Dano Verdadeiro (CD: 18s).`,
                 effect: 'arcane_meteor_unlock',
             },
             {
-                id: 'mag_p2', name: 'Sobrecarga de Mana', type: 'passiva', tier: 2,
-                icon: 'fa-brain', color: '#d8b4fe', maxLevel: 3, costPerLevel: 2,
-                requires: 'mag_p1',
-                descFn: (l) => `+${l * 25} Mana Máxima e +${(l * 0.4).toFixed(1)} Mana Regen/s. Ataques têm ${l * 10}% chance de recuperar 15 Mana.`,
-                effect: 'mana_overload',
-            },
-            // ── TIER 3: MAESTRIA ÉPICA (Custo: 3 pts) ──────────────────
-            {
-                id: 'mag_p3', name: 'Mente Cósmica', type: 'keystone', tier: 3,
-                icon: 'fa-hat-wizard', color: '#7e22ce', maxLevel: 2, costPerLevel: 3,
+                id: 'mag_p3', name: 'Mente Cósmica', type: 'keystone', tier: 3, branch: 'combat',
+                icon: 'fa-hat-wizard', color: '#7e22ce', maxLevel: 2, baseCost: 3,
                 requires: 'mag_act',
                 descFn: (l) => `Converte ${l * 10}% da sua Mana Máxima em Dano Mágico adicional em todos os seus golpes e feitiços!`,
                 effect: 'cosmic_mind',
             },
+            // ── RAMO DE RESILIÊNCIA & PASSIVAS (Direita) ───────────────
             {
-                id: 'mag_u1', name: 'Canalização Etérea', type: 'utilidade', tier: 3,
-                icon: 'fa-moon', color: '#78716c', maxLevel: 2, costPerLevel: 2,
+                id: 'mag_p1', name: 'Explosão Arcana', type: 'passiva', tier: 1, branch: 'passive',
+                icon: 'fa-wand-magic-sparkles', color: '#a855f7', maxLevel: 3, baseCost: 1,
+                requires: null,
+                descFn: (l) => `Ataques básicos consomem 5 Mana para causar +${30 + l * 15}% Dano ignorando 50% da armadura inimiga.`,
+                effect: 'arcane_blast_boost',
+            },
+            {
+                id: 'mag_p2', name: 'Sobrecarga de Mana', type: 'passiva', tier: 2, branch: 'passive',
+                icon: 'fa-brain', color: '#d8b4fe', maxLevel: 3, baseCost: 2,
+                requires: 'mag_p1',
+                descFn: (l) => `+${l * 25} Mana Máxima e +${(l * 0.4).toFixed(1)} Mana Regen/s. Ataques têm ${l * 10}% chance de recuperar 15 Mana.`,
+                effect: 'mana_overload',
+            },
+            {
+                id: 'mag_u1', name: 'Canalização Etérea', type: 'utilidade', tier: 3, branch: 'passive',
+                icon: 'fa-moon', color: '#78716c', maxLevel: 2, baseCost: 2,
                 requires: 'mag_p2',
                 descFn: (l) => `Cura Espontânea restaura +${l * 20} de Mana junto com a vida. +${l * 30}min de farm offline.`,
                 effect: 'mage_utility',
@@ -834,47 +831,46 @@ export const SKILL_TREE = {
         name: 'Ladrão das Sombras',
         role: 'Agilidade, Crítico & Pilhagem',
         nodes: [
-            // ── TIER 1: FUNDAMENTOS (Custo: 1 pt) ──────────────────────
+            // ── RAMO DE COMBATE & ATIVAS (Esquerda) ────────────────────
             {
-                id: 'thf_p1', name: 'Passo das Sombras', type: 'passiva', tier: 1,
-                icon: 'fa-mask', color: '#10b981', maxLevel: 3, costPerLevel: 1,
-                requires: null,
-                descFn: (l) => `Dobra Esquiva natural, concede +${l * 6}% Esquiva extra e +${l * 15}% chance de drops raros e materiais.`,
-                effect: 'shadow_step_boost',
-            },
-            {
-                id: 'thf_a1', name: 'Precisão Mortal', type: 'basica', tier: 1,
-                icon: 'fa-crosshairs', color: '#34d399', maxLevel: 3, costPerLevel: 1,
+                id: 'thf_a1', name: 'Precisão Mortal', type: 'basica', tier: 1, branch: 'combat',
+                icon: 'fa-crosshairs', color: '#34d399', maxLevel: 3, baseCost: 1,
                 requires: null,
                 descFn: (l) => `Ataque Concentrado sempre causa Acerto Crítico com ${3 + l * 0.8}× Dano e consome -${l * 4}⚡ Energia.`,
                 effect: 'thf_focus_boost',
             },
-            // ── TIER 2: ESPECIALIZAÇÃO (Custo: 2 pts) ───────────────────
             {
-                id: 'thf_act', name: 'Emboscada Letal', type: 'ativa', tier: 2,
-                icon: 'fa-skull', color: '#059669', maxLevel: 3, costPerLevel: 2,
+                id: 'thf_act', name: 'Emboscada Letal', type: 'ativa', tier: 2, branch: 'combat',
+                icon: 'fa-skull', color: '#059669', maxLevel: 3, baseCost: 2,
                 requires: 'thf_a1',
                 descFn: (l) => `Nova Super Ativa: Consome 35⚡. Golpe surpresa crítico com ${4 + l}× Dano e aplica Veneno por 5s (${l * 15}% dano/s) (CD: 12s).`,
                 effect: 'ambush_unlock',
             },
             {
-                id: 'thf_p2', name: 'Reflexos Assassinos', type: 'passiva', tier: 2,
-                icon: 'fa-person-running', color: '#6ee7b7', maxLevel: 3, costPerLevel: 2,
-                requires: 'thf_p1',
-                descFn: (l) => `Ao esquivar de um golpe, contra-ataca imediatamente com ${50 + l * 25}% do seu Dano e recupera 15⚡ Energia!`,
-                effect: 'assassin_counter',
-            },
-            // ── TIER 3: MAESTRIA ÉPICA (Custo: 3 pts) ──────────────────
-            {
-                id: 'thf_p3', name: 'Mão Leve & Saqueador', type: 'keystone', tier: 3,
-                icon: 'fa-coins', color: '#047857', maxLevel: 2, costPerLevel: 3,
+                id: 'thf_p3', name: 'Mão Leve & Saqueador', type: 'keystone', tier: 3, branch: 'combat',
+                icon: 'fa-coins', color: '#047857', maxLevel: 2, baseCost: 3,
                 requires: 'thf_act',
                 descFn: (l) => `+${l * 30}% de Ouro e +${l * 20}% chance de drops e itens raros de monstros e baús.`,
                 effect: 'master_thief',
             },
+            // ── RAMO DE RESILIÊNCIA & PASSIVAS (Direita) ───────────────
             {
-                id: 'thf_u1', name: 'Astúcia das Sombras', type: 'utilidade', tier: 3,
-                icon: 'fa-user-ninja', color: '#78716c', maxLevel: 2, costPerLevel: 2,
+                id: 'thf_p1', name: 'Passo das Sombras', type: 'passiva', tier: 1, branch: 'passive',
+                icon: 'fa-mask', color: '#10b981', maxLevel: 3, baseCost: 1,
+                requires: null,
+                descFn: (l) => `Dobra Esquiva natural, concede +${l * 6}% Esquiva extra e +${l * 15}% chance de drops raros e materiais.`,
+                effect: 'shadow_step_boost',
+            },
+            {
+                id: 'thf_p2', name: 'Reflexos Assassinos', type: 'passiva', tier: 2, branch: 'passive',
+                icon: 'fa-person-running', color: '#6ee7b7', maxLevel: 3, baseCost: 2,
+                requires: 'thf_p1',
+                descFn: (l) => `Ao esquivar de um golpe, contra-ataca imediatamente com ${50 + l * 25}% do seu Dano e recupera 15⚡ Energia!`,
+                effect: 'assassin_counter',
+            },
+            {
+                id: 'thf_u1', name: 'Astúcia das Sombras', type: 'utilidade', tier: 3, branch: 'passive',
+                icon: 'fa-user-ninja', color: '#78716c', maxLevel: 2, baseCost: 2,
                 requires: 'thf_p2',
                 descFn: (l) => `Reduz o cooldown do Ataque Concentrado e Cura Espontânea em ${l * 15}%. +${l * 30}min farm offline.`,
                 effect: 'thief_utility',
@@ -882,6 +878,31 @@ export const SKILL_TREE = {
         ],
     },
 };
+
+/**
+ * Calcula o custo progressivo do próximo nível de um nó da Árvore.
+ * Ex: Tier 1 (base 1): Nv 1 = 1 pt, Nv 2 = 2 pts, Nv 3 = 3 pts.
+ *     Tier 2 (base 2): Nv 1 = 2 pts, Nv 2 = 3 pts, Nv 3 = 4 pts.
+ *     Tier 3 (base 3): Nv 1 = 3 pts, Nv 2 = 4 pts...
+ */
+export function getNodeUpgradeCost(node, currentLevel = 0) {
+    if (!node) return 1;
+    const base = node.baseCost || (node.tier === 1 ? 1 : (node.tier === 2 ? 2 : (node.type === 'keystone' ? 3 : 2)));
+    return base + currentLevel;
+}
+
+/**
+ * Calcula o total de pontos investidos acumulados num nó para reembolso exato no Respec.
+ */
+export function getNodeTotalInvested(node, currentLevel = 0) {
+    if (!node || currentLevel <= 0) return 0;
+    const base = node.baseCost || (node.tier === 1 ? 1 : (node.tier === 2 ? 2 : (node.type === 'keystone' ? 3 : 2)));
+    let total = 0;
+    for (let i = 0; i < currentLevel; i++) {
+        total += (base + i);
+    }
+    return total;
+}
 
 // ==========================================
 // HELPER: efeitos da Árvore de Habilidades
