@@ -20,11 +20,13 @@
 
 import ptBr from './pt-br.js';
 import en   from './en.js';
+import es   from './es.js';
 
 // ---- Repositório de idiomas ----
 const _langs = {
     'pt-br': ptBr,
     'en':    en,
+    'es':    es,
 };
 
 let _current = 'pt-br';
@@ -119,7 +121,6 @@ export function t(key, params = {}) {
 
 export const LANG_META = {
     'pt-br': { label: 'Português (BR)', flag: '🇧🇷', native: 'Português' },
+    'es':    { label: 'Español (ES)',   flag: '🇪🇸', native: 'Español'    },
     'en':    { label: 'English (US)',   flag: '🇺🇸', native: 'English'    },
-    // Adicione aqui ao registrar novos idiomas:
-    // 'es':  { label: 'Español',        flag: '🇪🇸', native: 'Español'    },
 };

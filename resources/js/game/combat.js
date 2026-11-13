@@ -797,7 +797,7 @@ export function generateTowerEventRoom(floor) {
                 },
                 {
                     text: 'Purificar o Altar (Gasta 1 Essência)',
-                    icon: 'fa-sparkles',
+                    icon: 'fa-wand-magic-sparkles',
                     tip: 'Purifica as trevas e recebe uma bênção protetora.',
                     action: 'purify',
                 },
@@ -1311,7 +1311,7 @@ export function getWorldBossTierInfo(damage = 0) {
         progressPct = Math.min(100, Math.max(0, ((damage - prevMin) / span) * 100));
     }
 
-    return { currentTier, nextTier, progressPct };
+    return { currentTier, nextTier, current: currentTier, next: nextTier, progressPct };
 }
 
 export function startWorldBossBattle(state, useExtraDiamond = false) {
@@ -1382,9 +1382,11 @@ export function finishWorldBossBattle(state, reason = 'time_up') {
             damage: dmg,
             isNewRecord,
             reason,
+            tierIcon: '⚔️',
             tierName: 'Sem Classificação (< 500 Dano)',
             badgeClass: 'bg-stone-900 border-stone-700 text-stone-400',
-            rewardsText: ['200 🪙 Ouro de Consolação'],
+            rewardsText: ['+200 🪙 Ouro de Consolação'],
+            summary: '+200 🪙 Ouro de Consolação',
         };
         state.resources.gold = (state.resources.gold || 0) + 200;
         return wb.lastResult;
@@ -1469,9 +1471,11 @@ export function finishWorldBossBattle(state, reason = 'time_up') {
         damage: dmg,
         isNewRecord,
         reason,
+        tierIcon: currentTier.icon || '🏆',
         tierName: currentTier.name,
         badgeClass: currentTier.badgeClass,
         rewardsText,
+        summary: rewardsText.join(' · '),
     };
 
     return wb.lastResult;

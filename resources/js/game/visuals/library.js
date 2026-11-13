@@ -39,7 +39,7 @@ export default {
     'menu.inventory':                { icon: 'fa-suitcase',           emoji: '🎒', asset: 'menu/inventory' },
     'menu.explore':                  { icon: 'fa-compass',            emoji: '⚔️', asset: 'menu/explore' },
     'menu.tower':                    { icon: 'fa-chess-rook',         emoji: '🗼', asset: 'menu/tower' },
-    'menu.domain':                   { icon: 'fa-fort-awesome',       emoji: '🏰', asset: 'menu/domain' },
+    'menu.domain':                   { icon: 'fa-chess-rook',         emoji: '🏰', asset: 'menu/domain' },
     'menu.companions':               { icon: 'fa-paw',               emoji: '🐾', asset: 'menu/companions' },
     'menu.bestiary':                 { icon: 'fa-book-skull',         emoji: '📖', asset: 'menu/bestiary' },
     'menu.stats':                    { icon: 'fa-chart-line',         emoji: '📊', asset: 'menu/stats' },
@@ -48,7 +48,7 @@ export default {
     // =====================================================
     // 🛡️ EQUIPAMENTOS & MOCHILA
     // =====================================================
-    'item.weapon':                   { icon: 'fa-dagger',             emoji: '⚔️', asset: 'items/sword',  aliases: ['items/weapon'] },
+    'item.weapon':                   { icon: 'fa-khanda',             emoji: '⚔️', asset: 'items/sword',  aliases: ['items/weapon'] },
     'item.shield':                   { icon: 'fa-shield-halved',      emoji: '🛡️', asset: 'items/shield' },
     'item.helmet':                   { icon: 'fa-crown',              emoji: '👑', asset: 'items/helmet' },
     'item.chest':                    { icon: 'fa-shirt',              emoji: '🦺', asset: 'items/armor',  aliases: ['items/chest'] },
@@ -96,6 +96,7 @@ export default {
     // =====================================================
     'building.fortification':        { icon: 'fa-chess-rook',         emoji: '🏰', color: '#78716c', asset: 'domain/fortification' },
     'building.hut':                  { icon: 'fa-house',              emoji: '🛖', color: '#a16207', asset: 'domain/hut' },
+    'building.sawmill':              { icon: 'fa-tree',               emoji: '🪚', color: '#10b981' },
     'building.farm':                 { icon: 'fa-wheat-awn',          emoji: '🌾', color: '#eab308', asset: 'domain/farm' },
     'building.workshop':             { icon: 'fa-hammer',             emoji: '🔨', color: '#f97316', asset: 'domain/workshop' },
     'building.mine':                 { icon: 'fa-gem',                emoji: '⛏️', color: '#94a3b8', asset: 'domain/mine' },
@@ -109,19 +110,24 @@ export default {
     // 🌌 ASCENSÃO CÓSMICA & BÊNÇÃOS
     // =====================================================
     'ascension.ancestral_diamond':   { icon: 'fa-gem',                emoji: '💎', color: '#e0f2fe', asset: 'ascension/ancestral_diamond', aliases: ['ascension/ancestral diamond', 'ascension/ancient_diamond'] },
+    'ascension.dmg':                 { icon: 'fa-khanda',             emoji: '⚔️', color: '#f87171' },
+    'ascension.gold':                { icon: 'fa-coins',              emoji: '🪙', color: '#fbbf24' },
+    'ascension.xp':                  { icon: 'fa-brain',              emoji: '🧠', color: '#c084fc' },
+    'ascension.drop':                { icon: 'fa-magnet',             emoji: '🧲', color: '#38bdf8' },
+    'ascension.offline_cap':         { icon: 'fa-hourglass-half',     emoji: '⏳', color: '#34d399' },
     'ascension.perk_dmg':            { icon: 'fa-khanda',             emoji: '⚔️', color: '#f87171' },
     'ascension.perk_gold':           { icon: 'fa-coins',              emoji: '🪙', color: '#fbbf24' },
     'ascension.perk_xp':             { icon: 'fa-brain',              emoji: '🧠', color: '#c084fc' },
     'ascension.perk_drop':           { icon: 'fa-magnet',             emoji: '🧲', color: '#38bdf8' },
-    // Bênçãos do GUIA (futuras)
-    'ascension.eternal_str':         { icon: 'fa-fist-raised',        emoji: '✊', color: '#ef4444', asset: 'ascension/eternal_str' },
-    'ascension.eternal_def':         { icon: 'fa-shield',             emoji: '🛡️', color: '#fbbf24', asset: 'ascension/eternal_def' },
-    'ascension.eternal_hp':          { icon: 'fa-heart',              emoji: '❤️', color: '#dc2626', asset: 'ascension/eternal_hp' },
-    'ascension.resource_master':     { icon: 'fa-suitcase',           emoji: '🎒', color: '#22c55e', asset: 'ascension/resource_master' },
-    'ascension.golden_touch':        { icon: 'fa-hand-sparkles',      emoji: '✋', color: '#fbbf24', asset: 'ascension/golden_touch' },
-    'ascension.double_loot':         { icon: 'fa-eye',                emoji: '👁️', color: '#a855f7', asset: 'ascension/double_loot' },
-    'ascension.fast_hunter':         { icon: 'fa-feather',            emoji: '🏹', color: '#38bdf8', asset: 'ascension/fast_hunter' },
-    'ascension.crit_master':         { icon: 'fa-burst',              emoji: '💥', color: '#ef4444', asset: 'ascension/crit_master' },
+    // Bênçãos Expandidas da Linhagem
+    'ascension.eternal_str':         { icon: 'fa-dumbbell',           emoji: '✊', color: '#ef4444' },
+    'ascension.eternal_def':         { icon: 'fa-shield-halved',      emoji: '🛡️', color: '#fbbf24' },
+    'ascension.eternal_hp':          { icon: 'fa-heart',              emoji: '❤️', color: '#dc2626' },
+    'ascension.resource_master':     { icon: 'fa-suitcase',           emoji: '🎒', color: '#22c55e' },
+    'ascension.golden_touch':        { icon: 'fa-hand-sparkles',      emoji: '✋', color: '#fbbf24' },
+    'ascension.double_loot':         { icon: 'fa-sack-dollar',        emoji: '💰', color: '#10b981' },
+    'ascension.fast_hunter':         { icon: 'fa-bolt',               emoji: '⚡', color: '#facc15' },
+    'ascension.crit_master':         { icon: 'fa-crosshairs',         emoji: '🎯', color: '#e879f9' },
 
     // =====================================================
     // 🐾 COMPANHEIROS & MASCOTES (PETS)
@@ -249,4 +255,33 @@ export default {
     'market.scrap':                  { icon: 'fa-cogs',               emoji: '⚙️', color: '#9ca3af' },
     'market.iron':                   { icon: 'fa-cubes-stacked',      emoji: '⛏️', color: '#cbd5e1' },
     'market.essence':                { icon: 'fa-bolt',               emoji: '✨', color: '#a855f7' },
+
+    // =====================================================
+    // 🐾 TALENTOS BESTIAIS DOS PETS
+    // =====================================================
+    'pet_talent.sharp_fangs':        { icon: 'fa-paw',                emoji: '🐾', color: '#ef4444' },
+    'pet_talent.alpha_instinct':     { icon: 'fa-crown',              emoji: '👑', color: '#fbbf24' },
+    'pet_talent.vital_bond':         { icon: 'fa-heart-pulse',        emoji: '💚', color: '#4ade80' },
+    'pet_talent.wind_wings':         { icon: 'fa-feather-pointed',    emoji: '🪽', color: '#38bdf8' },
+    'pet_talent.hunter_scent':       { icon: 'fa-compass',            emoji: '🧭', color: '#f97316' },
+    'pet_talent.primordial_roar':    { icon: 'fa-dragon',             emoji: '🐉', color: '#c084fc' },
+
+    // =====================================================
+    // 🐉 CHEFES MUNDIAIS DIÁRIOS (WORLD BOSS)
+    // =====================================================
+    'world_boss.ignis_dragon':       { icon: 'fa-dragon',             emoji: '🐉', color: '#ef4444' },
+    'world_boss.abyssal_leviathan':  { icon: 'fa-water',              emoji: '🐙', color: '#38bdf8' },
+    'world_boss.obsidian_colossus':  { icon: 'fa-shield-virus',       emoji: '🗿', color: '#f59e0b' },
+    'world_boss.void_harbinger':     { icon: 'fa-skull-crossbones',   emoji: '👁️', color: '#c084fc' },
+
+    // =====================================================
+    // 🗺️ BIOMAS DE EXPLORAÇÃO
+    // =====================================================
+    'biome.dark_forest':             { icon: 'fa-tree',               emoji: '🌲', color: '#22c55e' },
+    'biome.khaz_mines':              { icon: 'fa-mountain',           emoji: '⛏️', color: '#94a3b8' },
+    'biome.black_swamp':             { icon: 'fa-skull',              emoji: '☠️', color: '#84cc16' },
+    'biome.eldor_ruins':             { icon: 'fa-monument',           emoji: '🏛️', color: '#eab308' },
+    'biome.storm_peak':              { icon: 'fa-bolt',               emoji: '⚡', color: '#38bdf8' },
+    'biome.iron_citadel':            { icon: 'fa-chess-rook',         emoji: '🏰', color: '#f97316' },
+    'biome.void_abyss':              { icon: 'fa-ankh',               emoji: '🌌', color: '#a855f7' },
 };

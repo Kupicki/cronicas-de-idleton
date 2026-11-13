@@ -50,7 +50,7 @@ import {
     handleTowerMonsterKill, processSiegeCombatTick,
     getTowerModifierIntensity,
     getDailyWorldBoss, syncWorldBossDailyReset, getWorldBossTierInfo,
-    startWorldBossBattle, processWorldBossCombatTick,
+    startWorldBossBattle, processWorldBossCombatTick, finishWorldBossBattle,
 } from './combat.js';
 import {
     renderCanvas, makeHeroDmgFloat, makeMonsterDmgFloat,
@@ -273,12 +273,14 @@ export function gameData() {
         // ==========================================
 
         async initGame() {
-            // Restaura idioma salvo (fallback para pt-br caso seja um idioma ainda em desenvolvimento)
+            // Restaura idioma salvo ('pt-br', 'es' ou 'en')
             const savedLang = localStorage.getItem('idleton_lang');
-            const initialLang = savedLang === 'pt-br' ? 'pt-br' : 'pt-br';
+            const availableLangs = getAvailableLangs();
+            const initialLang = availableLangs.includes(savedLang) ? savedLang : 'pt-br';
             setLang(initialLang);
             this.language = getLang();
             localStorage.setItem('idleton_lang', initialLang);
+            this._refreshLocalizedConfig();
 
             const savedName = localStorage.getItem('idleton_hero_name') || 'Zé Ninguém';
             try {
@@ -560,6 +562,24 @@ export function gameData() {
                 s.hero.treePoints = pastLevels;
             }
 
+            // Migração de ícones legados FontAwesome Pro -> FontAwesome Free 6.6.0
+            const fixBrokenFaIcon = (ic) => {
+                if (ic === 'fa-dagger' || ic === 'fa-sword' || ic === 'fa-swords') return 'fa-khanda';
+                if (ic === 'fa-anvil') return 'fa-hammer';
+                if (ic === 'fa-sparkles') return 'fa-wand-magic-sparkles';
+                if (ic === 'fa-fort-awesome') return 'fa-chess-rook';
+                return ic;
+            };
+            if (Array.isArray(s.inventory)) {
+                s.inventory.forEach(it => { if (it && it.icon) it.icon = fixBrokenFaIcon(it.icon); });
+            }
+            if (s.equipment && typeof s.equipment === 'object') {
+                Object.values(s.equipment).forEach(it => { if (it && it.icon) it.icon = fixBrokenFaIcon(it.icon); });
+            }
+            if (Array.isArray(s.quests)) {
+                s.quests.forEach(q => { if (q && q.icon) q.icon = fixBrokenFaIcon(q.icon); });
+            }
+
             return s;
         },
 
@@ -650,15 +670,26 @@ export function gameData() {
             }
         },
 
+        _refreshLocalizedConfig() {
+            this.tabs = this.tabs.map(tb => ({
+                ...tb,
+                name: t(`nav.tab.${tb.id}`) !== `nav.tab.${tb.id}` ? t(`nav.tab.${tb.id}`) : tb.name,
+            }));
+            this.statConfig = this.statConfig.map(sc => ({
+                ...sc,
+                name: t(`stat.${sc.key}`) !== `stat.${sc.key}` ? t(`stat.${sc.key}`) : sc.name,
+                tip: t(`stat.${sc.key}.tip`) !== `stat.${sc.key}.tip` ? t(`stat.${sc.key}.tip`) : sc.tip,
+            }));
+        },
+
         // Troca idioma e persiste a preferência
         switchLang(lang) {
-            if (lang !== 'pt-br') {
-                this.showNotification(lang === 'en' ? 'English language will be available soon! 🇺🇸' : 'Idioma Español estará disponible pronto! 🇪🇸');
-                return;
-            }
+            if (!getAvailableLangs().includes(lang)) return;
             setLang(lang);
             this.language = getLang();
             localStorage.setItem('idleton_lang', lang);
+            this._refreshLocalizedConfig();
+            this.showNotification(t('settings.language_changed'));
         },
 
         // Função de tradução exposta no template Alpine
@@ -2097,11 +2128,13 @@ export function gameData() {
             el.style.display = '';
             const parent = el.parentElement;
             if (parent) {
-                // Se houver um ícone FontAwesome ou texto de fallback específico
-                const icon = parent.querySelector('i.fas, i.fa-solid');
-                if (icon && icon !== el) {
-                    icon.style.display = 'none';
-                }
+                // Esconde ícone FontAwesome ou span de emoji fallback quando a imagem real carrega
+                const fallbacks = parent.querySelectorAll('i.fas, i.fa-solid, span');
+                fallbacks.forEach(fb => {
+                    if (fb !== el && fb.id !== 'header-logo-fallback') {
+                        fb.style.display = 'none';
+                    }
+                });
                 const fallbackLogo = document.getElementById('header-logo-fallback');
                 if (fallbackLogo && parent.contains(fallbackLogo)) {
                     fallbackLogo.style.display = 'none';
@@ -2163,10 +2196,12 @@ export function gameData() {
             el.style.display = 'none';
             const parent = el.parentElement;
             if (parent) {
-                const icon = parent.querySelector('i.fas, i.fa-solid');
-                if (icon && icon !== el) {
-                    icon.style.display = '';
-                }
+                const fallbacks = parent.querySelectorAll('i.fas, i.fa-solid, span');
+                fallbacks.forEach(fb => {
+                    if (fb !== el && fb.id !== 'header-logo-fallback') {
+                        fb.style.display = '';
+                    }
+                });
                 const fallbackLogo = document.getElementById('header-logo-fallback');
                 if (fallbackLogo && parent.contains(fallbackLogo)) {
                     fallbackLogo.style.display = 'flex';
