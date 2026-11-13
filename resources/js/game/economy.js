@@ -3,7 +3,9 @@ import {
     CRAFTING_RECIPES, ENCHANTMENT_TYPES,
     ASCENSION_PERKS, BAG_UPGRADES,
     RELIC_RECIPES, PET_EXPEDITIONS_CONFIG,
-    ITEM_SETS,
+    ITEM_SETS, MARKET_TRADES, BLACK_MARKET_OFFERS,
+    TAVERN_CONTRACT_TEMPLATES, getTreeEffects,
+    PETS, PET_MAX_LEVEL, PET_TALENTS, getPetXpRequired,
 } from './constants.js';
 import { trackQuestProgress } from './quests.js';
 import {
@@ -63,9 +65,10 @@ export function calcGoldIncomeRate(state) {
         basePerSec += (b[key].qty || 0) * (b[key].prod || 0);
     }
 
-    // Fortificação do Domínio (+10% por nível)
+    // Fortificação do Domínio (+10% por nível) + Sinergia do Castelo Real (+5% por nível)
     const domainLvl  = state.domainLevel || 0;
-    const domainMult = 1 + (domainLvl * 0.10);
+    const castleQty  = b.castle?.qty || 0;
+    const domainMult = (1 + (domainLvl * 0.10)) * (1 + (castleQty * 0.05));
 
     // Bônus do Oráculo (+50% se ativo)
     let oracleMult = 1.0;
@@ -73,9 +76,22 @@ export function calcGoldIncomeRate(state) {
         oracleMult = (state.oracleBuff.multiplier || 1.5);
     }
 
-    // Habilidade Mãos de Ouro (+5% por nível)
+    // Habilidade Mãos de Ouro (+5% por nível) + Ascensão Cofre Ancestral (+15% por nível)
     const goldenHandsLvl = state.skills?.golden_hands?.level || 0;
-    const skillMult = 1 + (goldenHandsLvl * 0.05);
+    const ascGoldLvl     = state.ascension?.perks?.gold || 0;
+    let skillMult = (1 + (goldenHandsLvl * 0.05)) * (1 + (ascGoldLvl * 0.15));
+
+    // Conjunto Ouro do Ganancioso (4 peças: +25% de Ouro em monstros e edifícios)
+    let greedyCount = 0;
+    Object.values(state.equipment || {}).forEach(eq => {
+        if (eq && eq.setId === 'greedy') greedyCount++;
+    });
+    if (greedyCount >= 4) skillMult *= 1.25;
+
+    // Bônus de Descanso na Estalagem da Taverna (+35% produção se ativo)
+    if (state.tavernRestBuff && state.tavernRestBuff.expiresAt > Date.now()) {
+        skillMult *= 1.35;
+    }
 
     // Bônus da Invasão da Vila (+50% se defendida nas últimas 24h)
     let siegeMult = 1.0;
@@ -97,9 +113,53 @@ export function calcGoldIncomeRate(state) {
     };
 }
 
+// Acumulador interno para recursos passivos do Domínio
+let _domainResourceTimers = { wood: 0, scrap: 0, iron: 0, essence: 0 };
+
 export function processBuildings(state, dt) {
     const rate = calcGoldIncomeRate(state);
-    state.resources.gold += rate.totalPerSec * dt;
+    const goldGain = rate.totalPerSec * dt;
+    state.resources.gold += goldGain;
+
+    const b = state.buildings || {};
+    // XP passivo da Biblioteca Arcana (+1.5 XP/s por nível)
+    if ((b.library?.qty || 0) > 0 && state.hero && !state.hero.isDead) {
+        state.hero.xp = (state.hero.xp || 0) + (b.library.qty * 1.5 * dt);
+    }
+
+    // Extração passiva de materiais pelas estruturas do Domínio (GDD Expansão 4.1 & 5.1)
+    if ((b.sawmill?.qty || 0) > 0) {
+        _domainResourceTimers.wood += dt * b.sawmill.qty;
+        if (_domainResourceTimers.wood >= 20) {
+            const gained = Math.floor(_domainResourceTimers.wood / 20);
+            _domainResourceTimers.wood %= 20;
+            state.resources.wood = (state.resources.wood || 0) + gained;
+        }
+    }
+    if ((b.workshop?.qty || 0) > 0) {
+        _domainResourceTimers.scrap += dt * b.workshop.qty;
+        if (_domainResourceTimers.scrap >= 25) {
+            const gained = Math.floor(_domainResourceTimers.scrap / 25);
+            _domainResourceTimers.scrap %= 25;
+            state.resources.scrap = (state.resources.scrap || 0) + gained;
+        }
+    }
+    if ((b.mine?.qty || 0) > 0) {
+        _domainResourceTimers.iron += dt * b.mine.qty;
+        if (_domainResourceTimers.iron >= 30) {
+            const gained = Math.floor(_domainResourceTimers.iron / 30);
+            _domainResourceTimers.iron %= 30;
+            state.resources.iron = (state.resources.iron || 0) + gained;
+        }
+    }
+    if ((b.treasury?.qty || 0) > 0) {
+        _domainResourceTimers.essence += dt * b.treasury.qty;
+        if (_domainResourceTimers.essence >= 45) {
+            const gained = Math.floor(_domainResourceTimers.essence / 45);
+            _domainResourceTimers.essence %= 45;
+            state.resources.essence = (state.resources.essence || 0) + gained;
+        }
+    }
 }
 
 // ---- MERCADO DINÂMICO (GDD: Seção 15) ----
@@ -155,6 +215,210 @@ export function buyMarketResource(state, item) {
     };
 }
 
+/**
+ * Escambo de Materiais (GDD Expansão 4.2): troca recursos diretamente sem gastar diamantes.
+ */
+export function tradeMarketResources(state, tradeId) {
+    const trade = MARKET_TRADES.find(t => t.id === tradeId);
+    if (!trade) return { ok: false, msg: 'Troca inválida.' };
+
+    const currentFrom = state.resources[trade.fromRes] || 0;
+    if (currentFrom < trade.fromQty) {
+        return { ok: false, msg: `${trade.fromName} insuficiente! Necessário ${trade.fromQty} ${trade.fromIcon}` };
+    }
+
+    state.resources[trade.fromRes] = currentFrom - trade.fromQty;
+    state.resources[trade.toRes]   = (state.resources[trade.toRes] || 0) + trade.toQty;
+
+    if (trade.toRes === 'scrap') {
+        trackQuestProgress(state, 'GATHER_MATERIALS', trade.toQty);
+    }
+
+    return {
+        ok: true,
+        msg: `🤝 Escambo concluído: Trocou ${trade.fromQty} ${trade.fromName} por +${trade.toQty} ${trade.toName} ${trade.toIcon}!`,
+    };
+}
+
+/**
+ * Mercado Negro do Contrabandista (GDD Expansão 4.2): ofertas especiais usando Diamantes comuns.
+ */
+export function buyBlackMarketOffer(state, offerId) {
+    const offer = BLACK_MARKET_OFFERS.find(o => o.id === offerId);
+    if (!offer) return { ok: false, msg: 'Oferta inválida do Mercado Negro.' };
+
+    if ((state.resources.diamond || 0) < offer.costDiamonds) {
+        return { ok: false, msg: `Diamantes insuficientes! Necessário ${offer.costDiamonds} 💎` };
+    }
+
+    const maxSlots = state.inventoryMaxSlots || 20;
+    if ((offer.id === 'bm_epic_chest' || offer.id === 'bm_set_reliquary') && (state.inventory || []).length >= maxSlots) {
+        return { ok: false, msg: `Mochila cheia (${maxSlots}/${maxSlots})! Libere espaço antes de abrir a arca.` };
+    }
+
+    state.resources.diamond -= offer.costDiamonds;
+
+    if (offer.id === 'bm_epic_chest' || offer.id === 'bm_set_reliquary') {
+        const typeDef = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+        const isReliquary = offer.id === 'bm_set_reliquary';
+        const rarityId = isReliquary
+            ? (Math.random() < 0.75 ? 'legendary' : 'mythic')
+            : (Math.random() < 0.70 ? 'epic' : 'legendary');
+        const rarityDef = RARITIES.find(r => r.id === rarityId) || RARITIES[3];
+
+        const setKeys = Object.keys(ITEM_SETS);
+        const setId = (isReliquary || Math.random() < 0.50)
+            ? setKeys[Math.floor(Math.random() * setKeys.length)]
+            : null;
+
+        const zoneScaled = Math.max(state.zone || 1, Math.floor((state.hero?.level || 1) / 4) + 1);
+        const val = Math.max(4, Math.floor(typeDef.baseVal * rarityDef.mult * Math.pow(1.15, zoneScaled)));
+        const item = {
+            id:       Math.random().toString(36).substring(2, 9),
+            name:     generateItemName(typeDef, rarityDef, setId),
+            type:     typeDef.id,
+            icon:     typeDef.icon,
+            rarity:   rarityDef.id,
+            color:    rarityDef.color,
+            stat:     typeDef.stat,
+            val:      val,
+            price:    Math.floor(45 * rarityDef.mult * zoneScaled),
+            level:    1,
+            setId:    setId,
+            isLocked: false,
+        };
+        state.inventory.push(item);
+        return {
+            ok: true,
+            item,
+            msg: `🕵️ Contrabando adquirido: [${item.name}] (+${val} ${typeDef.stat.toUpperCase()})!`,
+        };
+    }
+
+    if (offer.id === 'bm_elixir_stats') {
+        state.hero.statPoints = (state.hero.statPoints || 0) + 2;
+        const xpGain = Math.floor((state.hero.nextXp || 100) * 0.50);
+        state.hero.xp = (state.hero.xp || 0) + xpGain;
+        return {
+            ok: true,
+            msg: `📖 Você absorveu o Tomo Proibido! Ganhou +2 Pontos de Atributo permanentes e +${xpGain} XP!`,
+        };
+    }
+
+    if (offer.id === 'bm_war_chest') {
+        state.resources.wood    = (state.resources.wood || 0) + 100;
+        state.resources.iron    = (state.resources.iron || 0) + 50;
+        state.resources.scrap   = (state.resources.scrap || 0) + 60;
+        state.resources.essence = (state.resources.essence || 0) + 20;
+        trackQuestProgress(state, 'GATHER_MATERIALS', 60);
+        return {
+            ok: true,
+            msg: `📦 Carregamento de Guerra entregue: +100🌲 Madeira, +50🧱 Ferro, +60⚙️ Sucata e +20⚡ Essência!`,
+        };
+    }
+
+    return { ok: false, msg: 'Oferta desconhecida.' };
+}
+
+// ---- ESTALAGEM & CONTRATOS DA TAVERNA (GDD Expansão 3.3) ----
+
+export function getTavernRestCost(state) {
+    const lvl = state.hero?.level || 1;
+    return Math.max(80, Math.floor(lvl * 35));
+}
+
+export function restAtTavernInn(state) {
+    const cost = getTavernRestCost(state);
+    if ((state.resources.gold || 0) < cost) {
+        return { ok: false, msg: `Ouro insuficiente para a Estalagem! Necessário ${cost} 🪙` };
+    }
+
+    state.resources.gold -= cost;
+    trackQuestProgress(state, 'SPEND_GOLD', cost);
+
+    // Cura imediatamente 100% HP, Energia e Mana e aplica buff de 15 minutos
+    if (state.derived) {
+        state.hero.hp     = state.derived.hpMax || 50;
+        state.hero.energy = state.derived.energyMax || 30;
+        state.hero.mana   = state.derived.manaMax || 30;
+    }
+    state.hero.isDead = false;
+    state.hero.isRecovering = false;
+
+    state.tavernRestBuff = {
+        name: 'Banquete & Descanso do Javali',
+        expiresAt: Date.now() + (15 * 60 * 1000), // 15 min
+    };
+
+    return {
+        ok: true,
+        msg: `🍺 Banquete servido! HP/Energia/Mana restaurados em 100% e Buff da Estalagem (+35% Ouro do Domínio, +35% Regen e +20% XP) ativo por 15 min!`,
+    };
+}
+
+export function generateTavernContracts(state, force = false) {
+    if (!force && Array.isArray(state.tavernContracts) && state.tavernContracts.length > 0) {
+        return state.tavernContracts;
+    }
+    const zone = Math.max(1, state.zone || 1);
+    const lvl  = Math.max(1, state.hero?.level || 1);
+    const pool = [...TAVERN_CONTRACT_TEMPLATES].sort(() => Math.random() - 0.5).slice(0, 3);
+
+    state.tavernContracts = pool.map(tpl => {
+        const scale = 1 + (zone - 1) * 0.35;
+        const reqQty = Math.max(5, Math.floor(tpl.baseQty * scale));
+        const goldReward = Math.floor(reqQty * tpl.goldMult * (1 + lvl * 0.08));
+        const xpReward   = Math.floor(reqQty * tpl.xpMult   * (1 + lvl * 0.10));
+        return {
+            id: Math.random().toString(36).substring(2, 9),
+            tplId: tpl.id,
+            title: tpl.title,
+            npc: tpl.npc,
+            icon: tpl.icon,
+            color: tpl.color,
+            desc: tpl.desc,
+            resource: tpl.resource,
+            resourceName: tpl.resourceName,
+            reqQty,
+            rewardGold: goldReward,
+            rewardXp: xpReward,
+            rewardDiamonds: tpl.diamonds || 1,
+            completed: false,
+        };
+    });
+
+    return state.tavernContracts;
+}
+
+export function completeTavernContract(state, contractIndex) {
+    const contract = state.tavernContracts?.[contractIndex];
+    if (!contract) return { ok: false, msg: 'Contrato não encontrado.' };
+    if (contract.completed) return { ok: false, msg: 'Este contrato já foi entregue!' };
+
+    const currentRes = state.resources[contract.resource] || 0;
+    if (currentRes < contract.reqQty) {
+        return { ok: false, msg: `${contract.resourceName} insuficiente! Necessário ${contract.reqQty} (você tem ${Math.floor(currentRes)}).` };
+    }
+
+    state.resources[contract.resource] = currentRes - contract.reqQty;
+    state.resources.gold    = (state.resources.gold || 0) + contract.rewardGold;
+    state.resources.diamond = (state.resources.diamond || 0) + contract.rewardDiamonds;
+    state.hero.xp           = (state.hero.xp || 0) + contract.rewardXp;
+    contract.completed      = true;
+
+    trackQuestProgress(state, 'EARN_GOLD', contract.rewardGold);
+
+    // Se todos os 3 contratos foram entregues, gera uma nova leva automaticamente!
+    if (state.tavernContracts.every(c => c.completed)) {
+        generateTavernContracts(state, true);
+    }
+
+    return {
+        ok: true,
+        msg: `📜 Contrato "${contract.title}" entregue! Recebeu +${contract.rewardGold} 🪙, +${contract.rewardXp} XP e +${contract.rewardDiamonds} 💎!`,
+    };
+}
+
 // ---- LOOT ----
 
 /**
@@ -176,7 +440,10 @@ function generateItemName(typeDef, rarityDef, setId = null) {
  * Retorna o item gerado, 'full' (se bolsa cheia) ou null se não dropar.
  */
 export function generateLoot(state, monster = null) {
-    // Chance base de drop: 40% + bônus de Sorte + bônus de Bestiário (10 kills = +2%) + Ladrão das Sombras
+    const te = getTreeEffects(state);
+    const ascDropLvl = state.ascension?.perks?.drop || 0;
+
+    // Chance base de drop: 40% + bônus de Sorte + bônus de Bestiário (10 kills = +2%) + Ladrão das Sombras + Árvore + Ascensão
     let dropChance = 40;
     if (state.derived?.lck) {
         dropChance += (state.derived.lck - 1) * 0.5;
@@ -187,11 +454,21 @@ export function generateLoot(state, monster = null) {
     if (state.hero?.specialization === 'shadow_thief') {
         dropChance += 10;
     }
+    if (te.loot_boost) {
+        dropChance += te.loot_boost * 5;
+    }
+    if (ascDropLvl > 0) {
+        dropChance += ascDropLvl * 5;
+    }
+    if (monster?.affix) {
+        dropChance += 25; // Monstros Campeões de Elite têm altíssima chance de equipamento
+    }
 
     if (Math.random() * 100 > dropChance) return null;
 
-    // Determina raridade
-    const roll = Math.random() * 100;
+    // Determina raridade (com impulso de Sorte, Árvore Ladino, Ascensão e Monstro Campeão)
+    const luckShift = Math.min(25, ((state.derived?.lck || 1) - 1) * 0.25 + (te.loot_boost || 0) * 1.5 + ascDropLvl * 1.2 + (monster?.affix ? 5 : 0));
+    const roll = Math.max(0, (Math.random() * 100) - luckShift);
     let accumulated = 0;
     let rarity = RARITIES[0];
     for (const r of [...RARITIES].reverse()) {
@@ -382,6 +659,7 @@ export function craftItem(state, recipeId) {
 
     // Rastreia missões e estatísticas
     trackQuestProgress(state, 'SPEND_GOLD', cost.gold);
+    trackQuestProgress(state, 'FORGE_ITEMS', 1);
     if (state.lifetimeStats) state.lifetimeStats.itemsCrafted++;
 
     return {
@@ -422,6 +700,7 @@ export function enchantEquipment(state, slot, enchantId) {
     };
 
     trackQuestProgress(state, 'SPEND_GOLD', gold);
+    trackQuestProgress(state, 'FORGE_ITEMS', 1);
     if (state.lifetimeStats) state.lifetimeStats.enchantmentsDone++;
 
     return {
@@ -571,12 +850,18 @@ export function calcMonsterMaterialDrops(state, monster) {
     const drops = [];
     const zone = state.zone || 1;
     const isBoss = monster.isBoss;
-    const ascensionDropBonus = (state.ascension?.perks?.drop || 0) * 0.10;
+    const isElite = !!monster.affix;
+    const te = getTreeEffects(state);
+    const ascensionDropBonus = ((state.ascension?.perks?.drop || 0) * 0.10) + ((te.loot_boost || 0) * 0.05) + (isElite ? 0.25 : 0);
+
+    // Multiplicador de Saque Duplo (Ascensão Toque de Midas + Monstro Acumulador)
+    const doubleLootChance = ((state.ascension?.perks?.double_loot || 0) * 0.10) + (monster.affix?.id === 'hoarder' ? 0.60 : 0);
+    const qtyMult = Math.random() < doubleLootChance ? 2 : 1;
 
     // 1. Madeira Nobre (Criaturas da floresta / comuns)
     const woodChance = 0.18 + ascensionDropBonus;
     if (Math.random() < woodChance) {
-        const qty = isBoss ? Math.floor(Math.random() * 4) + 3 : Math.floor(Math.random() * 2) + 1;
+        const qty = (isBoss ? Math.floor(Math.random() * 4) + 3 : Math.floor(Math.random() * 2) + 1) * qtyMult;
         state.resources.wood = (state.resources.wood || 0) + qty;
         drops.push({ id: 'wood', name: 'Madeira Nobre', qty, icon: 'fa-tree', color: '#10b981' });
     }
@@ -585,7 +870,7 @@ export function calcMonsterMaterialDrops(state, monster) {
     const isRockMob = ['golem', 'orc', 'golem_pedra', 'esqueleto'].includes(monster.baseType);
     const ironChance = (isRockMob ? 0.35 : 0.12) + (zone >= 2 ? 0.05 : 0) + ascensionDropBonus;
     if (Math.random() < ironChance) {
-        const qty = isBoss ? Math.floor(Math.random() * 3) + 2 : (isRockMob ? Math.floor(Math.random() * 2) + 1 : 1);
+        const qty = (isBoss ? Math.floor(Math.random() * 3) + 2 : (isRockMob ? Math.floor(Math.random() * 2) + 1 : 1)) * qtyMult;
         state.resources.iron = (state.resources.iron || 0) + qty;
         drops.push({ id: 'iron', name: 'Minério de Ferro', qty, icon: 'fa-cube', color: '#93c5fd' });
     }
@@ -594,15 +879,16 @@ export function calcMonsterMaterialDrops(state, monster) {
     const isMagicMob = ['elemental', 'harpia', 'morcego'].includes(monster.baseType);
     const essenceChance = (isBoss ? 0.60 : (isMagicMob ? 0.25 : 0.08)) + (zone >= 3 ? 0.05 : 0) + ascensionDropBonus;
     if (Math.random() < essenceChance) {
-        const qty = isBoss ? Math.floor(Math.random() * 3) + 1 : 1;
+        const qty = (isBoss ? Math.floor(Math.random() * 3) + 1 : 1) * qtyMult;
         state.resources.essence = (state.resources.essence || 0) + qty;
         drops.push({ id: 'essence', name: 'Essência Mágica', qty, icon: 'fa-bolt', color: '#c084fc' });
     }
 
-    // 4. Sucata adicional (Monstros armados ou chefes)
-    if (isBoss || Math.random() < 0.15) {
-        const qty = isBoss ? Math.floor(Math.random() * 5) + 3 : Math.floor(Math.random() * 2) + 1;
+    // 4. Sucata adicional (Monstros armados, elites ou chefes)
+    if (isBoss || isElite || Math.random() < 0.15) {
+        const qty = (isBoss ? Math.floor(Math.random() * 5) + 3 : Math.floor(Math.random() * 2) + 1) * qtyMult;
         state.resources.scrap = (state.resources.scrap || 0) + qty;
+        trackQuestProgress(state, 'GATHER_MATERIALS', qty);
         drops.push({ id: 'scrap', name: 'Sucata', qty, icon: 'fa-cogs', color: '#9ca3af' });
     }
 
@@ -693,6 +979,10 @@ export function performAscension(state) {
         tamerUnlocked: false,
         owned: [],
         active: null,
+        levels: {},
+        xp: {},
+        talents: {},
+        talentPoints: 0,
     };
     state.petExpeditions = [];
 
@@ -868,8 +1158,10 @@ export function startPetExpedition(state, petId, zoneId, durationMinutes) {
     }
 
     const durationDef = zoneCfg.durations.find(d => d.minutes === durationMinutes) || zoneCfg.durations[0];
+    const windLvl = state.pets?.talents?.wind_wings || 0;
+    const speedMult = Math.max(0.5, 1 - (windLvl * 0.08));
     const startedAt = Date.now();
-    const expiresAt = startedAt + (durationDef.minutes * 60 * 1000);
+    const expiresAt = startedAt + Math.floor(durationDef.minutes * 60 * 1000 * speedMult);
 
     const expedition = {
         id: Math.random().toString(36).substring(2, 9),
@@ -882,7 +1174,7 @@ export function startPetExpedition(state, petId, zoneId, durationMinutes) {
     };
 
     state.petExpeditions.push(expedition);
-    return { ok: true, msg: `🐾 Mascote enviado para ${zoneCfg.name} (${durationDef.desc})!`, expedition };
+    return { ok: true, msg: `🐾 Mascote enviado para ${zoneCfg.name} (${durationDef.desc}${windLvl > 0 ? ` · -${windLvl * 8}% tempo` : ''})!`, expedition };
 }
 
 export function claimPetExpedition(state, expIndex) {
@@ -897,44 +1189,170 @@ export function claimPetExpedition(state, expIndex) {
     const durationDef = zoneCfg?.durations.find(d => d.minutes === exp.durationMinutes);
     const rewards = [];
 
+    // Bônus da Keystone de Paladino Aura de Luz (+15%/nv) + Talento Faro de Caçador (+15%/nv)
+    const te = getTreeEffects(state);
+    const scentLvl = state.pets?.talents?.hunter_scent || 0;
+    const auraBonus = (1 + ((te.aura_of_light || 0) * 0.15)) * (1 + (scentLvl * 0.15));
+
     if (durationDef) {
         if (durationDef.wood) {
-            const qty = Math.floor(Math.random() * (durationDef.wood[1] - durationDef.wood[0] + 1)) + durationDef.wood[0];
+            const raw = Math.floor(Math.random() * (durationDef.wood[1] - durationDef.wood[0] + 1)) + durationDef.wood[0];
+            const qty = Math.max(1, Math.floor(raw * auraBonus));
             state.resources.wood = (state.resources.wood || 0) + qty;
             rewards.push(`+${qty} Madeira Nobre 🌲`);
         }
         if (durationDef.iron) {
-            const qty = Math.floor(Math.random() * (durationDef.iron[1] - durationDef.iron[0] + 1)) + durationDef.iron[0];
+            const raw = Math.floor(Math.random() * (durationDef.iron[1] - durationDef.iron[0] + 1)) + durationDef.iron[0];
+            const qty = Math.max(1, Math.floor(raw * auraBonus));
             state.resources.iron = (state.resources.iron || 0) + qty;
             rewards.push(`+${qty} Minério de Ferro 🧱`);
         }
         if (durationDef.essence) {
-            const qty = Math.floor(Math.random() * (durationDef.essence[1] - durationDef.essence[0] + 1)) + durationDef.essence[0];
+            const raw = Math.floor(Math.random() * (durationDef.essence[1] - durationDef.essence[0] + 1)) + durationDef.essence[0];
+            const qty = Math.max(1, Math.floor(raw * auraBonus));
             state.resources.essence = (state.resources.essence || 0) + qty;
             rewards.push(`+${qty} Essência Mágica ⚡`);
         }
         if (durationDef.scrap) {
-            const qty = Math.floor(Math.random() * (durationDef.scrap[1] - durationDef.scrap[0] + 1)) + durationDef.scrap[0];
+            const raw = Math.floor(Math.random() * (durationDef.scrap[1] - durationDef.scrap[0] + 1)) + durationDef.scrap[0];
+            const qty = Math.max(1, Math.floor(raw * auraBonus));
             state.resources.scrap = (state.resources.scrap || 0) + qty;
+            trackQuestProgress(state, 'GATHER_MATERIALS', qty);
             rewards.push(`+${qty} Sucata ⚙️`);
         }
         if (durationDef.gold) {
-            const qty = Math.floor(Math.random() * (durationDef.gold[1] - durationDef.gold[0] + 1)) + durationDef.gold[0];
+            const raw = Math.floor(Math.random() * (durationDef.gold[1] - durationDef.gold[0] + 1)) + durationDef.gold[0];
+            const qty = Math.max(1, Math.floor(raw * auraBonus));
             state.resources.gold = (state.resources.gold || 0) + qty;
+            trackQuestProgress(state, 'EARN_GOLD', qty);
             rewards.push(`+${qty} Ouro 🪙`);
         }
-        if (durationDef.diamonds) {
-            state.resources.diamond = (state.resources.diamond || 0) + durationDef.diamonds;
-            rewards.push(`+${durationDef.diamonds} Diamantes 💎`);
+        const dmReward = durationDef.diamonds || durationDef.gems || 0;
+        if (dmReward > 0) {
+            state.resources.diamond = (state.resources.diamond || 0) + dmReward;
+            rewards.push(`+${dmReward} Diamantes 💎`);
         }
         if (durationDef.xp) {
-            state.hero.xp += durationDef.xp;
-            rewards.push(`+${durationDef.xp} XP`);
+            const xpGain = Math.floor(durationDef.xp * auraBonus);
+            state.hero.xp += xpGain;
+            rewards.push(`+${xpGain} XP`);
         }
     }
 
+    // Concede +80 XP de Afinidade ao mascote que retornou da expedição
+    const petXpRes = grantPetXp(state, exp.petId, 80);
+    if (petXpRes?.leveledUp) {
+        rewards.push(`🌟 Nv. ${petXpRes.newLevel} de Afinidade (+1 Ponto de Talento Bestial)`);
+    } else {
+        rewards.push(`+80 XP de Afinidade`);
+    }
+
     state.petExpeditions.splice(expIndex, 1);
-    return { ok: true, msg: `🎉 Recompensas da Expedição coletadas: ${rewards.join(', ')}!` };
+    return { ok: true, msg: `🎉 Recompensas da Expedição coletadas: ${rewards.join(', ')}!`, leveledUp: petXpRes?.leveledUp };
+}
+
+// ==========================================
+// EVOLUÇÃO DE AFINIDADE & ÁRVORE DE TALENTOS DOS PETS
+// ==========================================
+
+export function grantPetXp(state, petId, amount = 15) {
+    if (!petId || !state.pets?.owned?.includes(petId)) return null;
+    if (!state.pets.levels) state.pets.levels = {};
+    if (!state.pets.xp) state.pets.xp = {};
+    if (typeof state.pets.talentPoints !== 'number') state.pets.talentPoints = 0;
+
+    let lvl = state.pets.levels[petId] || 1;
+    if (lvl >= PET_MAX_LEVEL) {
+        state.pets.levels[petId] = PET_MAX_LEVEL;
+        state.pets.xp[petId] = 0;
+        return { leveledUp: false, newLevel: PET_MAX_LEVEL };
+    }
+
+    let xp = (state.pets.xp[petId] || 0) + amount;
+    let leveledUp = false;
+
+    while (lvl < PET_MAX_LEVEL && xp >= getPetXpRequired(lvl)) {
+        xp -= getPetXpRequired(lvl);
+        lvl++;
+        leveledUp = true;
+        state.pets.talentPoints = (state.pets.talentPoints || 0) + 1;
+    }
+
+    if (lvl >= PET_MAX_LEVEL) xp = 0;
+    state.pets.levels[petId] = lvl;
+    state.pets.xp[petId] = xp;
+
+    const petDef = PETS.find(p => p.id === petId);
+    return {
+        leveledUp,
+        newLevel: lvl,
+        petName: petDef?.name || petId,
+    };
+}
+
+export function getPetTrainCost(state, petId) {
+    const lvl = state.pets?.levels?.[petId] || 1;
+    return {
+        gold: 500 * lvl,
+        essence: 3 * lvl,
+    };
+}
+
+export function trainPet(state, petId) {
+    if (!state.pets?.owned?.includes(petId)) {
+        return { ok: false, msg: 'Você ainda não adotou este mascote!' };
+    }
+    const lvl = state.pets?.levels?.[petId] || 1;
+    if (lvl >= PET_MAX_LEVEL) {
+        return { ok: false, msg: 'Este mascote já alcançou o Nível Máximo de Afinidade (Nv. 10)!' };
+    }
+    const cost = getPetTrainCost(state, petId);
+    if ((state.resources.gold || 0) < cost.gold) {
+        return { ok: false, msg: `Ouro insuficiente para treinar (${cost.gold} 🪙)!` };
+    }
+    if ((state.resources.essence || 0) < cost.essence) {
+        return { ok: false, msg: `Essência Mágica insuficiente para treinar (${cost.essence} ⚡)!` };
+    }
+
+    state.resources.gold -= cost.gold;
+    state.resources.essence -= cost.essence;
+    trackQuestProgress(state, 'SPEND_GOLD', cost.gold);
+
+    const res = grantPetXp(state, petId, 90);
+    if (res?.leveledUp) {
+        return {
+            ok: true,
+            leveledUp: true,
+            msg: `🐾🌟 ${res.petName} subiu para o Nível ${res.newLevel} de Afinidade! (+15% eficiência e +1 Ponto de Talento Bestial!)`,
+        };
+    }
+    return {
+        ok: true,
+        leveledUp: false,
+        msg: `🍖 ${res?.petName || 'Mascote'} recebeu treinamento intensivo (+90 XP de Afinidade)!`,
+    };
+}
+
+export function buyPetTalent(state, talentId) {
+    const talentDef = PET_TALENTS.find(t => t.id === talentId);
+    if (!talentDef) return { ok: false, msg: 'Talento bestial inválido.' };
+    if (!state.pets.talents) state.pets.talents = {};
+
+    const curLvl = state.pets.talents[talentId] || 0;
+    if (curLvl >= talentDef.maxLevel) {
+        return { ok: false, msg: `${talentDef.name} já está no nível máximo!` };
+    }
+    if ((state.pets.talentPoints || 0) < 1) {
+        return { ok: false, msg: 'Pontos de Talento Bestial insuficientes! Evolua a afinidade dos seus mascotes.' };
+    }
+
+    state.pets.talentPoints -= 1;
+    state.pets.talents[talentId] = curLvl + 1;
+
+    return {
+        ok: true,
+        msg: `🧬 Talento Bestial "${talentDef.name}" evoluído para Nível ${curLvl + 1}!`,
+    };
 }
 
 // ==========================================
@@ -968,12 +1386,13 @@ export function craftRelic(state, relicId) {
 
     const item = {
         id:       Math.random().toString(36).substring(2, 9),
+        relicId:  relic.id,
         name:     relic.name,
         type:     relic.slot,
         icon:     relic.icon,
         rarity:   'mythic',
         color:    relic.color,
-        stat:     relic.slot === 'weapon' ? 'str' : (relic.slot === 'shield' || relic.slot === 'chest' ? 'def' : 'hpMax'),
+        stat:     relic.slot === 'weapon' ? 'str' : (relic.slot === 'shield' ? 'def' : (relic.slot === 'chest' ? 'agi' : 'hpMax')),
         val:      relic.stats.str || relic.stats.def || relic.stats.agi || 50,
         price:    Math.floor(cost.gold * 0.8),
         level:    1,
@@ -982,6 +1401,9 @@ export function craftRelic(state, relicId) {
     };
 
     state.inventory.push(item);
+    trackQuestProgress(state, 'SPEND_GOLD', cost.gold);
+    trackQuestProgress(state, 'FORGE_ITEMS', 1);
+    if (state.lifetimeStats) state.lifetimeStats.itemsCrafted++;
     return { ok: true, msg: `👑 Forjou com maestria a Relíquia Mítica: ${relic.name}!`, item };
 }
 

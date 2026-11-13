@@ -55,6 +55,21 @@ export function generateQuest(zone = 1, heroLevel = 1, usedTypes = []) {
             rewardDiamond = Math.max(2, Math.floor(2 + scale * 0.3));
             rewardScrap   = Math.floor(4 + scale);
             break;
+        case 'CLEAR_TOWER':
+            rewardGold    = Math.floor(60 * scale * 1.5);
+            rewardDiamond = Math.max(3, Math.floor(2 + scale * 0.4));
+            rewardXp      = Math.floor(60 * scale);
+            break;
+        case 'CRITICAL_HITS':
+            rewardGold    = Math.floor(30 * scale * 1.3);
+            rewardDiamond = Math.max(1, Math.floor(1 + scale * 0.25));
+            rewardXp      = Math.floor(45 * scale);
+            break;
+        case 'FORGE_ITEMS':
+            rewardGold    = Math.floor(50 * scale * 1.4);
+            rewardDiamond = Math.max(2, Math.floor(2 + scale * 0.35));
+            rewardScrap   = Math.floor(5 + scale);
+            break;
         default:
             rewardGold    = 30 * scale;
             rewardDiamond = 1;
@@ -146,10 +161,23 @@ export function claimQuestReward(state, questId) {
     if (quest.reward.xp)      rewardSummary.push(`+${quest.reward.xp} XP`);
     if (quest.reward.scrap)   rewardSummary.push(`+${quest.reward.scrap} ⚙️`);
 
+    // Recompensa Surpresa / Baú da Guilda (GDD Expansão 3.2 — 20% de chance)
+    let surpriseText = '';
+    if (Math.random() < 0.20) {
+        const bonusDm  = Math.floor(Math.random() * 3) + 2;
+        const bonusEss = Math.floor(Math.random() * 5) + 3;
+        const bonusIrn = Math.floor(Math.random() * 8) + 4;
+        state.resources.diamond = (state.resources.diamond || 0) + bonusDm;
+        state.resources.essence = (state.resources.essence || 0) + bonusEss;
+        state.resources.iron    = (state.resources.iron || 0) + bonusIrn;
+        surpriseText = ` 🎁 BAÚ SURPRESA DA GUILDA: +${bonusDm} 💎, +${bonusEss} ⚡, +${bonusIrn} 🧱!`;
+    }
+
     return {
         ok: true,
         quest,
-        msg: `Missão concluída: ${quest.title}! (${rewardSummary.join(', ')})`,
+        surprise: !!surpriseText,
+        msg: `Missão concluída: ${quest.title}! (${rewardSummary.join(', ')})${surpriseText}`,
         replacement,
     };
 }

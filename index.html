@@ -19,7 +19,7 @@
                 <i class="fas fa-bars"></i>
             </button>
             <div class="flex items-center gap-2 select-none">
-                <!-- Logo Customizada (public/assets/logo.png ou .svg) -->
+                <!-- Logo Customizada (public./assets/logo.png ou .svg) -->
                 <img src="./assets/logo.png"
                      x-on:load="handleAssetLoad($event)"
                      x-on:error="handleAssetError($event)"
@@ -40,11 +40,21 @@
                     <span class="text-amber-400 font-mono" x-text="getOracleRemainingFormatted()"></span>
                 </div>
             </template>
+
+            <!-- Badge de Banquete da Estalagem Ativo -->
+            <template x-if="state.tavernRestBuff">
+                <div class="flex items-center gap-1.5 bg-amber-950/80 border border-amber-500/60 px-2.5 py-1 rounded-full text-[11px] text-amber-300 font-bold shadow-md cursor-pointer hover:bg-amber-900/90 transition-colors"
+                     title="Banquete do Javali: +35% Regen HP/Energia/Mana e +20% XP em Combate">
+                    <i class="fas fa-utensils text-amber-400"></i>
+                    <span class="hidden lg:inline">Banquete</span>
+                    <span class="text-white font-mono" x-text="getTavernRestRemainingFormatted()"></span>
+                </div>
+            </template>
         </div>
         
         <div class="flex gap-2 text-xs overflow-x-auto no-scrollbar py-2 px-1">
-            <template x-for="(res, key) in [{id:'gold', icon:'fa-coins', color:'text-[#ffd700]'}, {id:'diamond', icon:'fa-gem', color:'text-cyan-400'}, {id:'ancestralDiamonds', icon:'fa-gem', color:'text-purple-400', label:'Ancestral', showIf: 'ascension'}, {id:'wood', icon:'fa-tree', color:'text-emerald-500'}, {id:'essence', icon:'fa-bolt', color:'text-purple-500'}, {id:'scrap', icon:'fa-cogs', color:'text-gray-400'}, {id:'iron', icon:'fa-cubes-stacked', color:'text-slate-300'}]" :key="key">
-                <div class="flex flex-col items-center bg-stone-900/80 px-3 py-1 rounded border border-stone-800 min-w-[50px]" x-show="!res.showIf || (res.showIf === 'ascension' && (state.ascension?.count || 0) > 0)">
+            <template x-for="(res, key) in [{id:'gold', icon:'fa-coins', color:'text-[#ffd700]', title:'Ouro'}, {id:'diamond', icon:'fa-gem', color:'text-cyan-400', title:'Diamantes'}, {id:'ancestralDiamonds', icon:'fa-crown', color:'text-indigo-400', title:'Diamantes Ancestrais (Ascensão)'}, {id:'wood', icon:'fa-tree', color:'text-emerald-500', title:'Madeira Nobre'}, {id:'essence', icon:'fa-bolt', color:'text-purple-500', title:'Essência Mágica'}, {id:'scrap', icon:'fa-cogs', color:'text-gray-400', title:'Sucata'}, {id:'iron', icon:'fa-cubes-stacked', color:'text-slate-300', title:'Minério de Ferro'}]" :key="key">
+                <div class="flex flex-col items-center bg-stone-900/80 px-3 py-1 rounded border border-stone-800 min-w-[50px]" :title="res.title">
                     <div :class="res.color" class="flex gap-1.5 items-center font-bold">
                         <div class="w-4 h-4 flex items-center justify-center shrink-0 relative">
                             <img :src="getResourceAssetUrl(res.id)"
@@ -233,17 +243,22 @@
         <div class="p-4 border-b border-stone-800 text-[10px] text-stone-500 uppercase tracking-widest font-bold bg-black/20">Menu Principal</div>
         
         <template x-for="tab in tabs" :key="tab.id">
-            <button @click="switchTab(tab.id)" :class="{'text-[#fbbf24] border-l-[#fbbf24] bg-gradient-to-r from-[rgba(251,191,36,0.1)] to-transparent': activeTab === tab.id, 'text-[#78716c] border-l-transparent hover:text-[#d6d3d1] hover:bg-[rgba(255,255,255,0.03)]': activeTab !== tab.id}" class="px-4 py-3 w-full text-left medieval-font border-l-4 transition-all flex items-center bg-transparent cursor-pointer group">
-                <div class="w-6 h-6 mr-3 flex items-center justify-center shrink-0 relative">
-                    <img :src="`/assets/menu/${tab.id}.png`"
-                         x-on:load="handleAssetLoad($event)"
-                         x-on:error="handleAssetError($event)"
-                         class="w-5 h-5 object-contain transition-opacity duration-200 z-10"
-                         style="opacity: 0;"
-                         alt="">
-                    <i class="fas text-center" :class="tab.icon"></i>
+            <button @click="switchTab(tab.id)" :class="{'text-[#fbbf24] border-l-[#fbbf24] bg-gradient-to-r from-[rgba(251,191,36,0.1)] to-transparent': activeTab === tab.id, 'text-[#78716c] border-l-transparent hover:text-[#d6d3d1] hover:bg-[rgba(255,255,255,0.03)]': activeTab !== tab.id}" class="px-4 py-3 w-full text-left medieval-font border-l-4 transition-all flex items-center justify-between bg-transparent cursor-pointer group">
+                <div class="flex items-center">
+                    <div class="w-6 h-6 mr-3 flex items-center justify-center shrink-0 relative">
+                        <img :src="`./assets/menu/${tab.id}.png`"
+                             x-on:load="handleAssetLoad($event)"
+                             x-on:error="handleAssetError($event)"
+                             class="w-5 h-5 object-contain transition-opacity duration-200 z-10"
+                             style="opacity: 0;"
+                             alt="">
+                        <i class="fas text-center" :class="tab.icon"></i>
+                    </div>
+                    <span x-text="tab.name" class="font-bold"></span>
                 </div>
-                <span x-text="tab.name" class="font-bold"></span>
+                <template x-if="tab.id === 'stats' && getUnclaimedAchievementsCount() > 0">
+                    <span class="bg-amber-500 text-stone-950 font-sans font-black text-[10px] px-1.5 py-0.5 rounded-full animate-pulse" x-text="getUnclaimedAchievementsCount()"></span>
+                </template>
             </button>
         </template>
     </nav>
@@ -338,6 +353,29 @@
                             <span class="text-[10px] text-emerald-300 mt-1">Compre Materiais</span>
                         </button>
                     </div>
+                </div>
+
+                <!-- Banner de Atalho: Chefe Mundial Diário (GDD Expansão 1.6) -->
+                <div class="mt-4 panel p-3.5 bg-gradient-to-r from-red-950/60 via-stone-900 to-amber-950/40 border border-red-700/60 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-red-950 border-2 border-red-500 flex items-center justify-center text-2xl shrink-0 shadow-inner">
+                            <span x-text="getDailyWorldBoss().icon"></span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] uppercase tracking-widest font-black text-red-400">🐉 Chefe Mundial de Hoje</span>
+                                <span class="text-[10px] bg-red-950/90 border border-red-700 text-amber-300 px-2 py-0.5 rounded font-bold"
+                                      x-text="`${state.worldBoss?.dailyAttemptsLeft ?? 3}/3 Tentativas`"></span>
+                            </div>
+                            <h4 class="text-sm font-bold text-white medieval-font" x-text="getDailyWorldBoss().name"></h4>
+                            <p class="text-[11px] text-stone-300" x-text="getDailyWorldBoss().trait"></p>
+                        </div>
+                    </div>
+                    <button @click="switchTab('tower'); towerSubTab = 'world_boss'"
+                            class="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-red-700 to-amber-700 hover:from-red-600 hover:to-amber-600 text-white font-bold text-xs rounded-lg border border-red-400 shadow-lg transition-all cursor-pointer shrink-0 flex items-center justify-center gap-2">
+                        <i class="fas fa-dragon"></i>
+                        <span>Ir para a Fenda (DPS Check)</span>
+                    </button>
                 </div>
 
                 <!-- Quadro de Missões da Vila (GDD: Seção 15) -->
@@ -609,7 +647,7 @@
                                     <div>
                                         <div class="flex items-center gap-2 mb-2">
                                             <div class="w-10 h-10 rounded-lg bg-stone-950 flex items-center justify-center text-xl border border-purple-500 text-purple-300 relative overflow-hidden">
-                                                <img :src="`/assets/items/${relic.id}.png`"
+                                                <img :src="`./assets/items/${relic.id}.png`"
                                                      x-on:load="handleAssetLoad($event)"
                                                      x-on:error="handleAssetError($event)"
                                                      class="w-8 h-8 object-contain transition-opacity duration-200 z-10"
@@ -658,9 +696,28 @@
 
                 <!-- Painel da Taverna -->
                 <div x-show="cityPanel === 'tavern'" x-transition class="mt-4 panel p-4 space-y-4" style="display:none;" x-data="{ betAmount: 50 }">
-                    <div class="flex justify-between items-center border-b border-stone-800 pb-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-stone-800 pb-2 gap-2">
                         <h3 class="text-lg font-bold text-amber-400"><i class="fas fa-beer-mug-empty mr-2"></i>Taverna do Javali Risonho</h3>
-                        <button @click="cityPanel = null" class="text-stone-500 hover:text-white cursor-pointer"><i class="fas fa-times"></i></button>
+                        <div class="flex items-center gap-2">
+                            <div class="flex bg-stone-950 p-0.5 rounded border border-stone-800 text-[11px]">
+                                <button @click="tavernSubTab = 'games'"
+                                        :class="tavernSubTab === 'games' ? 'bg-amber-700 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-2.5 py-1 rounded font-bold transition-all cursor-pointer">
+                                    🎲 Jogos & Domador
+                                </button>
+                                <button @click="tavernSubTab = 'inn'"
+                                        :class="tavernSubTab === 'inn' ? 'bg-amber-700 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-2.5 py-1 rounded font-bold transition-all cursor-pointer">
+                                    🍖 Estalagem
+                                </button>
+                                <button @click="tavernSubTab = 'contracts'"
+                                        :class="tavernSubTab === 'contracts' ? 'bg-amber-700 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-2.5 py-1 rounded font-bold transition-all cursor-pointer">
+                                    📜 Contratos
+                                </button>
+                            </div>
+                            <button @click="cityPanel = null" class="text-stone-500 hover:text-white cursor-pointer ml-1"><i class="fas fa-times"></i></button>
+                        </div>
                     </div>
                     
                     <!-- Rumores da Taverna -->
@@ -674,8 +731,10 @@
                         <p class="text-xs text-stone-300 italic" x-text="`&ldquo;${currentRumor}&rdquo;`"></p>
                     </div>
 
-                <!-- Mini Jogos -->
-                    <div class="bg-stone-900 p-3 rounded border border-stone-800 text-center flex flex-wrap items-center justify-center gap-3">
+                    <!-- SUB-ABA 1: JOGOS & DOMADOR -->
+                    <div x-show="tavernSubTab === 'games'" class="space-y-4">
+                        <!-- Mini Jogos -->
+                        <div class="bg-stone-900 p-3 rounded border border-stone-800 text-center flex flex-wrap items-center justify-center gap-3">
                         <label class="text-xs text-stone-400 font-bold uppercase tracking-widest"><i class="fas fa-coins text-amber-500 mr-1"></i>Aposta:</label>
                         <input type="number" x-model.number="betAmount" min="1" :disabled="tavernAnim.active" class="bg-stone-800 text-[#fbbf24] font-bold px-3 py-2 rounded w-24 outline-none border border-stone-600 focus:border-[#fbbf24] text-center disabled:opacity-50">
                         <span class="text-[10px] text-stone-500">Saldo: <strong class="text-[#fbbf24] transition-all" :class="tavernLastResult === 'win' ? 'animate-pulse' : ''" x-text="Math.floor(state.resources.gold || 0).toLocaleString()"></strong> 🪙</span>
@@ -912,6 +971,91 @@
                             </template>
                         </div>
                     </div>
+                    </div>
+
+                    <!-- SUB-ABA 2: ESTALAGEM & BANQUETE DO JAVALI (GDD Expansão 3.3) -->
+                    <div x-show="tavernSubTab === 'inn'" style="display:none;" class="space-y-4">
+                        <div class="bg-gradient-to-br from-amber-950/50 via-stone-900 to-stone-950 border border-amber-700/50 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-14 h-14 rounded-xl bg-amber-950 border-2 border-amber-500/80 flex items-center justify-center text-2xl text-amber-400 shrink-0 shadow-lg">
+                                    <i class="fas fa-utensils"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-bold text-white medieval-font">Banquete & Descanso na Estalagem</h4>
+                                    <p class="text-xs text-stone-300 mt-0.5">Restaura <strong class="text-green-400">100% de Vida, Energia e Mana</strong> instantaneamente e concede o buff <strong class="text-amber-300">Banquete do Javali</strong> por 15 minutos:</p>
+                                    <div class="flex flex-wrap gap-2 mt-2 text-[10px] font-bold">
+                                        <span class="bg-stone-950 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded">+35% Regen HP/Energia/Mana</span>
+                                        <span class="bg-stone-950 border border-purple-700/60 text-purple-300 px-2 py-0.5 rounded">+20% XP em Combate</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="w-full sm:w-auto text-center shrink-0">
+                                <template x-if="state.tavernRestBuff">
+                                    <div class="text-[10px] text-amber-300 font-mono mb-1.5 bg-amber-950/60 border border-amber-700/50 px-2 py-1 rounded">
+                                        Ativo: <span x-text="getTavernRestRemainingFormatted()"></span>
+                                    </div>
+                                </template>
+                                <button @click="restInTavern()"
+                                        :disabled="(state.resources.gold || 0) < getTavernInnCost()"
+                                        class="w-full sm:w-auto px-4 py-2.5 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs rounded-lg border border-amber-400 shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2">
+                                    <i class="fas fa-bed"></i>
+                                    <span>Descansar (<span x-text="getTavernInnCost()"></span> 🪙)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUB-ABA 3: CONTRATOS DE SUPRIMENTO MERCENÁRIOS (GDD Expansão 3.3) -->
+                    <div x-show="tavernSubTab === 'contracts'" style="display:none;" class="space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-stone-900/90 p-2.5 rounded-lg border border-stone-800 text-xs">
+                            <span class="text-stone-300">Entregue recursos brutos aos mercadores da Taverna em troca de <strong>Ouro, XP e Diamantes</strong>!</span>
+                            <button @click="refreshTavernContracts()"
+                                    class="px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-amber-300 border border-stone-700 rounded text-[11px] font-bold flex items-center gap-1.5 shrink-0 cursor-pointer self-end sm:self-auto">
+                                <i class="fas fa-rotate"></i> Novos Contratos (150 🪙)
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <template x-for="(ct, idx) in (state.tavernContracts || [])" :key="ct.uid || idx">
+                                <div class="bg-stone-900/90 border p-3.5 rounded-lg flex flex-col justify-between transition-all"
+                                     :class="ct.completed ? 'border-green-800/50 opacity-60' : 'border-stone-800 hover:border-amber-600/60'">
+                                    <div>
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                                                <i class="fas" :class="[ct.icon, ct.color]"></i>
+                                                <span x-text="ct.name"></span>
+                                            </span>
+                                            <template x-if="ct.completed">
+                                                <span class="text-[9px] bg-green-950 border border-green-700 text-green-300 px-1.5 py-0.5 rounded font-bold">Entregue</span>
+                                            </template>
+                                        </div>
+                                        <div class="bg-stone-950 p-2 rounded border border-stone-850 text-[11px] space-y-1 mb-3">
+                                            <div class="flex justify-between">
+                                                <span class="text-stone-400">Requisito:</span>
+                                                <span class="font-bold" :class="(state.resources[ct.reqResource] || 0) >= ct.reqAmount ? 'text-green-400' : 'text-red-400'"
+                                                      x-text="`${Math.floor(state.resources[ct.reqResource] || 0)} / ${ct.reqAmount} ${ct.resName}`"></span>
+                                            </div>
+                                            <div class="flex justify-between">
+                                                <span class="text-stone-400">Pagamento:</span>
+                                                <span class="text-[#fbbf24] font-bold">
+                                                    +<span x-text="ct.rewardGold"></span> 🪙 · +<span x-text="ct.rewardXp"></span> XP
+                                                    <template x-if="ct.rewardDiamonds > 0">
+                                                        <span class="text-cyan-300" x-text="` · +${ct.rewardDiamonds} 💎`"></span>
+                                                    </template>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button @click="deliverTavernContract(idx)"
+                                            :disabled="ct.completed || (state.resources[ct.reqResource] || 0) < ct.reqAmount"
+                                            class="w-full py-2 rounded text-xs font-bold border transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                            :class="ct.completed ? 'bg-stone-800 border-stone-700 text-stone-500' : 'bg-amber-800 hover:bg-amber-700 border-amber-500 text-white shadow'">
+                                        <span x-text="ct.completed ? 'Contrato Concluído' : 'Entregar Suprimentos'"></span>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Painel do Oráculo (GDD: Seção 16) -->
@@ -1057,61 +1201,140 @@
                     </div>
                 </div>
 
-                <!-- Painel do Mercado (GDD: Seção 15) -->
+                <!-- Painel do Mercado (GDD: Seção 15 & Expansão 4.2) -->
                 <div x-show="cityPanel === 'market'" x-transition class="mt-4 panel p-4 space-y-4" style="display:none;">
-                    <div class="flex justify-between items-center border-b border-emerald-900/60 pb-2">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-emerald-900/60 pb-2 gap-2">
                         <div class="flex items-center gap-2">
                             <i class="fas fa-store text-emerald-400 text-xl"></i>
                             <h3 class="text-lg font-bold text-emerald-400">Mercado Central</h3>
                         </div>
-                        <button @click="cityPanel = null" class="text-stone-500 hover:text-white cursor-pointer"><i class="fas fa-times"></i></button>
-                    </div>
-                    
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                        <p class="text-stone-400">Compre lotes de suprimentos. Cada compra consecutiva aumenta o preço por escassez.</p>
-                        <div class="text-[10px] bg-stone-950 px-2.5 py-1 rounded border border-stone-800 text-stone-400 font-mono shrink-0 flex items-center gap-1.5">
-                            <i class="fas fa-clock text-amber-400"></i>
-                            <span>Reset de preços a cada 24h</span>
+                        <div class="flex items-center gap-2">
+                            <div class="flex bg-stone-950 p-0.5 rounded border border-stone-800 text-[11px]">
+                                <button @click="marketSubTab = 'gold'"
+                                        :class="marketSubTab === 'gold' ? 'bg-emerald-800 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-2.5 py-1 rounded font-bold transition-all cursor-pointer">
+                                    🪙 Ouro
+                                </button>
+                                <button @click="marketSubTab = 'barter'"
+                                        :class="marketSubTab === 'barter' ? 'bg-emerald-800 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-2.5 py-1 rounded font-bold transition-all cursor-pointer">
+                                    ⚖️ Escambo
+                                </button>
+                                <button @click="marketSubTab = 'black_market'"
+                                        :class="marketSubTab === 'black_market' ? 'bg-purple-900 text-purple-200 shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-2.5 py-1 rounded font-bold transition-all cursor-pointer">
+                                    💎 Mercado Negro
+                                </button>
+                            </div>
+                            <button @click="cityPanel = null" class="text-stone-500 hover:text-white cursor-pointer ml-1"><i class="fas fa-times"></i></button>
                         </div>
                     </div>
 
-                    <div class="bg-stone-900 p-2.5 rounded border border-stone-800 flex justify-between items-center text-xs font-bold">
-                        <span class="text-stone-400">Seu Ouro:</span>
-                        <span class="text-[#fbbf24] text-sm"><i class="fas fa-coins mr-1"></i> <span x-text="Math.floor(state.resources.gold).toLocaleString('pt-BR')"></span></span>
+                    <!-- SUB-ABA 1: MERCADO DE OURO -->
+                    <div x-show="marketSubTab === 'gold'" class="space-y-3">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                            <p class="text-stone-400">Compre lotes de suprimentos com Ouro. Cada compra consecutiva aumenta o preço por escassez.</p>
+                            <div class="text-[10px] bg-stone-950 px-2.5 py-1 rounded border border-stone-800 text-stone-400 font-mono shrink-0 flex items-center gap-1.5">
+                                <i class="fas fa-clock text-amber-400"></i>
+                                <span>Reset de preços a cada 24h</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-stone-900 p-2.5 rounded border border-stone-800 flex justify-between items-center text-xs font-bold">
+                            <span class="text-stone-400">Seu Ouro:</span>
+                            <span class="text-[#fbbf24] text-sm"><i class="fas fa-coins mr-1"></i> <span x-text="Math.floor(state.resources.gold).toLocaleString('pt-BR')"></span></span>
+                        </div>
+
+                        <!-- Grid de Itens do Mercado Dinâmico -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <template x-for="item in MARKET_ITEMS" :key="item.id">
+                                <div class="bg-stone-900/90 border border-stone-800 hover:border-emerald-700/60 p-3 rounded-lg flex items-center justify-between transition-colors">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 bg-stone-950 rounded-lg flex items-center justify-center border border-stone-700 shrink-0" :class="item.color">
+                                            <i class="fas text-lg" :class="item.icon"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                                                <span x-text="item.name"></span>
+                                                <span class="text-stone-400 text-[10px]" x-text="`(+${item.qty})`"></span>
+                                            </div>
+                                            <div class="text-[9px] text-stone-400 truncate" x-text="item.desc"></div>
+                                            <div class="flex items-center gap-2 text-[10px] mt-0.5">
+                                                <span class="text-stone-500">Em posse: <strong class="text-stone-300" x-text="Math.floor(state.resources[item.id] || 0)"></strong></span>
+                                                <template x-if="(state.marketPurchases?.[item.id] || 0) > 0">
+                                                    <span class="text-amber-400 font-bold text-[9px] bg-amber-950/60 border border-amber-800 px-1 rounded">
+                                                        Escassez +<span x-text="Math.floor(((state.marketPurchases[item.id] * 5) + (state.marketPurchases[item.id] * (state.marketPurchases[item.id] - 1) * 1)))"></span>%
+                                                    </span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button @click="buyMarketItem(item)"
+                                            :disabled="state.resources.gold < getMarketPrice(item)"
+                                            class="bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-200 text-xs font-bold px-3 py-2 rounded flex flex-col items-center transition-colors min-w-[75px] cursor-pointer shadow shrink-0 ml-2">
+                                        <span>Comprar</span>
+                                        <span class="text-[9px] text-[#fbbf24] font-bold" x-text="`${getMarketPrice(item)} 🪙`"></span>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
 
-                    <!-- Grid de Itens do Mercado Dinâmico -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <template x-for="item in MARKET_ITEMS" :key="item.id">
-                            <div class="bg-stone-900/90 border border-stone-800 hover:border-emerald-700/60 p-3 rounded-lg flex items-center justify-between transition-colors">
-                                <div class="flex items-center gap-3 min-w-0">
-                                    <div class="w-10 h-10 bg-stone-950 rounded-lg flex items-center justify-center border border-stone-700 shrink-0" :class="item.color">
-                                        <i class="fas text-lg" :class="item.icon"></i>
-                                    </div>
-                                    <div class="min-w-0">
-                                        <div class="text-xs font-bold text-white flex items-center gap-1.5 truncate">
-                                            <span x-text="item.name"></span>
-                                            <span class="text-stone-400 text-[10px]" x-text="`(+${item.qty})`"></span>
+                    <!-- SUB-ABA 2: ESCAMBO DE MATERIAIS (GDD Expansão 4.2) -->
+                    <div x-show="marketSubTab === 'barter'" style="display:none;" class="space-y-3">
+                        <p class="text-xs text-stone-400">Permute recursos excedentes diretamente com caravanas mercantes sem gastar seu Ouro.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <template x-for="trade in MARKET_TRADES" :key="trade.id">
+                                <div class="bg-stone-900/90 border border-stone-800 hover:border-emerald-700/60 p-3 rounded-lg flex items-center justify-between transition-colors">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 bg-stone-950 rounded-lg flex items-center justify-center border border-stone-700 shrink-0" :class="trade.color">
+                                            <i class="fas text-lg" :class="trade.icon"></i>
                                         </div>
-                                        <div class="text-[9px] text-stone-400 truncate" x-text="item.desc"></div>
-                                        <div class="flex items-center gap-2 text-[10px] mt-0.5">
-                                            <span class="text-stone-500">Em posse: <strong class="text-stone-300" x-text="Math.floor(state.resources[item.id] || 0)"></strong></span>
-                                            <template x-if="(state.marketPurchases?.[item.id] || 0) > 0">
-                                                <span class="text-amber-400 font-bold text-[9px] bg-amber-950/60 border border-amber-800 px-1 rounded">
-                                                    Escassez +<span x-text="Math.floor(((state.marketPurchases[item.id] * 5) + (state.marketPurchases[item.id] * (state.marketPurchases[item.id] - 1) * 1)))"></span>%
-                                                </span>
-                                            </template>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-bold text-white" x-text="trade.name"></div>
+                                            <div class="text-[10px] text-stone-400" x-text="trade.desc"></div>
+                                            <div class="text-[9px] text-stone-500 mt-0.5">
+                                                Você tem: <strong class="text-stone-300" x-text="Math.floor(state.resources[trade.from] || 0)"></strong>
+                                            </div>
                                         </div>
                                     </div>
+                                    <button @click="tradeMarketItem(trade)"
+                                            :disabled="(state.resources[trade.from] || 0) < trade.fromQty"
+                                            class="bg-emerald-900/70 hover:bg-emerald-800 border border-emerald-600/60 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded transition-colors cursor-pointer shrink-0 ml-2">
+                                        Trocar
+                                    </button>
                                 </div>
-                                <button @click="buyMarketItem(item)"
-                                        :disabled="state.resources.gold < getMarketPrice(item)"
-                                        class="bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-700/60 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-200 text-xs font-bold px-3 py-2 rounded flex flex-col items-center transition-colors min-w-[75px] cursor-pointer shadow shrink-0 ml-2">
-                                    <span>Comprar</span>
-                                    <span class="text-[9px] text-[#fbbf24] font-bold" x-text="`${getMarketPrice(item)} 🪙`"></span>
-                                </button>
-                            </div>
-                        </template>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- SUB-ABA 3: MERCADO NEGRO DE DIAMANTES (GDD Expansão 4.2) -->
+                    <div x-show="marketSubTab === 'black_market'" style="display:none;" class="space-y-3">
+                        <div class="flex items-center justify-between bg-purple-950/40 border border-purple-800/50 p-2.5 rounded-lg text-xs">
+                            <span class="text-purple-200">Contrabando místico de alta raridade negociado apenas em <strong>Diamantes</strong>.</span>
+                            <span class="font-bold text-cyan-300 shrink-0"><span x-text="Math.floor(state.resources.diamond || 0)"></span> 💎</span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <template x-for="offer in BLACK_MARKET_OFFERS" :key="offer.id">
+                                <div class="bg-stone-900/95 border border-purple-900/50 hover:border-purple-500/70 p-3.5 rounded-lg flex items-center justify-between transition-all">
+                                    <div class="flex items-center gap-3 min-w-0">
+                                        <div class="w-10 h-10 bg-stone-950 rounded-lg flex items-center justify-center border border-purple-800/60 shrink-0" :class="offer.color">
+                                            <i class="fas text-lg" :class="offer.icon"></i>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <div class="text-xs font-bold text-white" x-text="offer.name"></div>
+                                            <div class="text-[10px] text-stone-400 leading-tight" x-text="offer.desc"></div>
+                                        </div>
+                                    </div>
+                                    <button @click="buyBlackMarketItem(offer)"
+                                            :disabled="(state.resources.diamond || 0) < offer.costDiamonds"
+                                            class="bg-purple-900/80 hover:bg-purple-800 border border-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-3 py-2 rounded flex flex-col items-center shrink-0 ml-2 cursor-pointer shadow">
+                                        <span>Adquirir</span>
+                                        <span class="text-[10px] text-cyan-300 font-bold" x-text="`${offer.costDiamonds} 💎`"></span>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1128,8 +1351,12 @@
                                         <span x-text="state.hero.name"></span>
                                         <i class="fas fa-pen text-[10px] text-stone-500"></i>
                                     </h2>
-                                    <div class="text-xs text-stone-400 flex items-center gap-2">
+                                    <div class="text-xs text-stone-400 flex flex-wrap items-center gap-2 mt-0.5">
                                         <span>Nível <strong class="text-white font-bold" x-text="state.hero.level"></strong></span>
+                                        <span class="text-[10px] px-2 py-0.5 rounded bg-stone-950 border border-stone-800 font-bold flex items-center gap-1" :class="getHeroTitle().color">
+                                            <i class="fas text-[9px]" :class="getHeroTitle().icon"></i>
+                                            <span x-text="getHeroTitle().title"></span>
+                                        </span>
                                         <template x-if="state.hero.specialization">
                                             <span class="text-[10px] px-2 py-0.5 rounded border font-bold"
                                                   :style="`border-color: ${CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.color}; color: ${CLASS_SPECIALIZATIONS.find(s=>s.id===state.hero.specialization)?.color}`">
@@ -1200,7 +1427,7 @@
                 </div>
 
                 <!-- ══════════════════════════════════════════════════════════════════ -->
-                <!-- MODAL — ÁRVORE DE HABILIDADES                                     -->
+                <!-- MODAL — ÁRVORE DE HABILIDADES & TALENTOS (Fase 4A)                   -->
                 <!-- ══════════════════════════════════════════════════════════════════ -->
                 <template x-if="skillTreeOpen">
                     <div class="fixed inset-0 bg-black/85 backdrop-blur-md z-[120] flex items-center justify-center p-3 sm:p-4" @click.self="skillTreeOpen = false">
@@ -1592,9 +1819,6 @@
                     </div>
                 </template>
 
-                <div class="sr-only" x-ref="treeModalAnchor"></div>
-
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <!-- Equipamentos e Atributos -->
                     <div class="panel p-4 space-y-4">
@@ -1625,8 +1849,8 @@
                                                     <span class="font-mono text-[10px]" x-text="`${getActiveSetBonuses().counts[key] || 0}/8 Peças`"></span>
                                                 </div>
                                                 <div class="text-[9px] text-stone-400 mt-1 space-y-0.5">
-                                                    <div :class="(getActiveSetBonuses().counts[key] || 0) >= 4 ? 'text-green-400 font-bold' : 'text-stone-500'" x-text="`• (4 pcs) ${setDef.bonuses[4].desc}`"></div>
-                                                    <div :class="(getActiveSetBonuses().counts[key] || 0) >= 8 ? 'text-amber-400 font-bold' : 'text-stone-500'" x-text="`• (8 pcs) ${setDef.bonuses[8].desc}`"></div>
+                                                    <div :class="(getActiveSetBonuses().counts[key] || 0) >= 4 ? 'text-green-400 font-bold' : 'text-stone-500'" x-text="`• (4 pcs) ${setDef.bonus4 || setDef.bonuses?.[4]?.desc || ''}`"></div>
+                                                    <div :class="(getActiveSetBonuses().counts[key] || 0) >= 8 ? 'text-amber-400 font-bold' : 'text-stone-500'" x-text="`• (8 pcs) ${setDef.bonus8 || setDef.bonuses?.[8]?.desc || ''}`"></div>
                                                 </div>
                                             </div>
                                         </template>
@@ -1644,7 +1868,7 @@
                                      :title="state.equipment[slot] ? 'Clique para inspecionar ou desequipar' : 'Slot vazio'">
                                     <template x-if="state.equipment[slot]">
                                         <div class="flex flex-col items-center justify-center relative w-full h-full">
-                                            <!-- Imagem Customizada (se adicionada na pasta public/assets/items/) -->
+                                            <!-- Imagem Customizada (se adicionada na pasta public./assets/items/) -->
                                             <img :src="getItemAssetUrl(state.equipment[slot])"
                                                  x-on:load="handleAssetLoad($event)"
                                                  x-on:error="handleAssetError($event)"
@@ -1708,7 +1932,7 @@
                                          :title="state.inventory[i-1] ? `${state.inventory[i-1].name} (${getItemComparison(state.inventory[i-1])?.title || ''})` : ''">
                                         <template x-if="state.inventory[i-1]">
                                             <div class="flex items-center justify-center w-full h-full relative">
-                                                <!-- Imagem Customizada (se adicionada na pasta public/assets/items/) -->
+                                                <!-- Imagem Customizada (se adicionada na pasta public./assets/items/) -->
                                                 <img :src="getItemAssetUrl(state.inventory[i-1])"
                                                      x-on:load="handleAssetLoad($event)"
                                                      x-on:error="handleAssetError($event)"
@@ -1873,8 +2097,27 @@
 
             <!-- ========== ABA EXPLORAÇÃO ========== -->
             <div x-show="activeTab === 'explore'" class="space-y-2 relative max-w-3xl mx-auto animate-fade-in" style="display:none;">
-                <!-- Barra Superior de Controle de Zona & Exploração -->
+                <!-- Barra Superior de Controle de Zona, Bioma & Exploração -->
                 <div class="flex flex-col gap-2 mb-2 bg-stone-900/90 p-2.5 rounded-lg border border-stone-800 shrink-0">
+                    <!-- Faixa Atmosférica do Bioma Atual + Pet Companheiro Ativo -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 pb-1.5 border-b border-stone-800/80 text-[11px]">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-0.5 rounded bg-stone-950 border border-stone-800 font-bold flex items-center gap-1.5" :class="getCurrentBiome().color">
+                                <i class="fas" :class="getCurrentBiome().icon"></i>
+                                <span x-text="getCurrentBiome().name"></span>
+                            </span>
+                            <span class="text-stone-400 text-[10px] hidden sm:inline italic" x-text="getCurrentBiome().desc"></span>
+                        </div>
+                        <template x-if="getActivePetDef()">
+                            <div class="flex items-center gap-1.5 bg-amber-950/50 border border-amber-700/50 px-2 py-0.5 rounded text-[10px] text-amber-300 font-bold"
+                                 :title="`Companheiro Ativo: ${getActivePetDef().bonusDesc}`">
+                                <i class="fas" :class="[getActivePetDef().icon, getActivePetDef().color]"></i>
+                                <span x-text="getActivePetDef().name"></span>
+                                <span class="text-stone-400 font-normal">⚡ Auxiliando</span>
+                            </div>
+                        </template>
+                    </div>
+
                     <div class="flex justify-between items-center gap-2">
                         <!-- Botão Explorar/Parar -->
                         <button @click="toggleExploration()" :class="state.isExploring ? 'bg-red-800 hover:bg-red-700' : 'bg-green-800 hover:bg-green-700'" class="text-white text-xs font-bold py-2 px-4 rounded flex items-center gap-2 transition-all cursor-pointer">
@@ -1903,6 +2146,11 @@
                             <template x-if="state.monster?.isBoss">
                                 <span class="bg-red-950/80 border border-red-700 text-red-300 font-bold text-[10px] px-2.5 py-1 rounded animate-pulse">
                                     💀 CHEFE!
+                                </span>
+                            </template>
+                            <template x-if="state.monster?.isElite && !state.monster?.isBoss">
+                                <span class="bg-amber-950/80 border border-amber-500 text-amber-300 font-bold text-[10px] px-2 py-1 rounded animate-pulse">
+                                    👑 ELITE
                                 </span>
                             </template>
                             <template x-if="!state.monster?.isBoss && state.bossSafeMode">
@@ -1937,6 +2185,34 @@
                         </template>
                     </div>
                 </div>
+
+                <!-- EVENTO DINÂMICO DE EXPLORAÇÃO (BAÚ, ALTAR, MERCADOR, FONTE) -->
+                <template x-if="state.explorationEvent">
+                    <div class="bg-gradient-to-r from-amber-950/90 via-stone-900 to-purple-950/90 border-2 border-amber-500/80 rounded-lg p-3 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-stone-950 border border-amber-500/60 flex items-center justify-center text-xl shrink-0" :class="state.explorationEvent.color">
+                                <i class="fas" :class="state.explorationEvent.icon"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>✨ Evento de Exploração:</span>
+                                    <span class="text-white" x-text="state.explorationEvent.name"></span>
+                                </div>
+                                <p class="text-[11px] text-stone-300" x-text="state.explorationEvent.desc"></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                            <button @click="resolveExplorationEvent()"
+                                    class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-black text-xs rounded border border-amber-300 shadow cursor-pointer transition-transform hover:scale-105"
+                                    x-text="state.explorationEvent.btnText || 'Interagir'">
+                            </button>
+                            <button @click="dismissExplorationEvent()"
+                                    class="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white text-xs rounded border border-stone-700 cursor-pointer">
+                                Ignorar
+                            </button>
+                        </div>
+                    </div>
+                </template>
                 
                 <div class="relative flex-shrink-0 mb-2 shadow-2xl rounded-lg overflow-hidden border border-stone-700 h-[35vh] min-h-[200px]">
                     <canvas id="game-canvas" class="w-full h-full bg-[#0c0a09]"></canvas>
@@ -1970,7 +2246,10 @@
                     <!-- Herói: HP, Energia, Mana e Barra de Ataque -->
                     <div class="bg-stone-900/70 p-2.5 rounded-lg border border-stone-800 flex flex-col gap-1.5">
                         <div class="flex justify-between items-center text-xs font-bold">
-                            <span class="text-[#fbbf24]" x-text="state.hero.name"></span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[#fbbf24]" x-text="state.hero.name"></span>
+                                <span class="text-[9px] px-1.5 py-0.5 rounded bg-stone-950 border border-stone-800" :class="getHeroTitle().color" x-text="getHeroTitle().title"></span>
+                            </div>
                             <span class="text-stone-400 text-[10px]">Nv. <span x-text="state.hero.level"></span></span>
                         </div>
 
@@ -2020,12 +2299,20 @@
                     </div>
 
                     <!-- Inimigo: HP e Barra de Ataque -->
-                    <div class="bg-stone-900/70 p-2.5 rounded-lg border border-stone-800 flex flex-col justify-between" x-show="state.monster" style="display:none;">
+                    <div class="bg-stone-900/70 p-2.5 rounded-lg border flex flex-col justify-between"
+                         :class="state.monster?.isElite ? 'border-amber-500/70 bg-amber-950/15' : 'border-stone-800'"
+                         x-show="state.monster" style="display:none;">
                         <div>
-                            <div class="flex justify-between items-center text-xs font-bold mb-2">
-                                <span class="text-red-400" x-text="state.monster?.name"></span>
+                            <div class="flex justify-between items-center text-xs font-bold mb-1">
+                                <span :class="state.monster?.isElite ? 'text-amber-300' : 'text-red-400'" x-text="state.monster?.name"></span>
                                 <span class="text-stone-400 text-[10px]" x-show="state.monster">Nv. <span x-text="state.zone"></span></span>
                             </div>
+                            <template x-if="state.monster?.affix">
+                                <div class="mb-2 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-stone-950 border border-amber-700/60 text-[9px] font-bold" :style="`color: ${state.monster.affix.color}`">
+                                    <i class="fas" :class="state.monster.affix.icon"></i>
+                                    <span x-text="`${state.monster.affix.name}: ${state.monster.affix.desc}`"></span>
+                                </div>
+                            </template>
 
                             <!-- Barra de HP do Monstro -->
                             <div class="mb-3">
@@ -2055,14 +2342,14 @@
                 <!-- Habilidades Especiais (Ativas) em Combate -->
                 <div class="shrink-0 mb-2 grid gap-2" :class="getClassActiveSkillInfo().unlocked ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'">
                     <button @click="useFocusedAttack()"
-                            :disabled="!state.isExploring || !state.monster || (state.hero.energy||0) < 30 && !(state.treeSkills?.mag_foc >= 1 && (state.hero.mana||0) >= 30) || activeCooldownTimer > 0 || state.hero.isDead"
+                            :disabled="!state.isExploring || !state.monster || (state.hero.energy||0) < 30 && !(state.treeSkills?.mag_a1 >= 1 && (state.hero.mana||0) >= 30) || activeCooldownTimer > 0 || state.hero.isDead"
                             class="disabled:opacity-40 disabled:cursor-not-allowed border rounded flex items-center justify-between gap-2 px-3 py-2 transition-all text-xs font-bold"
                             :class="activeCooldownTimer > 0 ? 'bg-stone-900 border-stone-700 text-stone-500' : 'bg-amber-950/70 hover:bg-amber-900/80 border-amber-800/60 hover:border-amber-600 text-amber-300'">
                         <div class="flex items-center gap-2">
                             <i class="fas fa-bolt text-sm" :class="activeCooldownTimer > 0 ? 'text-stone-600' : 'text-amber-400'"></i>
                             <div class="text-left">
-                                <div class="text-xs font-bold" x-text="state.treeSkills?.mag_foc >= 1 ? 'Transmutação Arcana' : 'Ataque Concentrado'">Ataque Concentrado</div>
-                                <div class="text-[8px] font-normal text-amber-500/80" x-text="state.treeSkills?.mag_foc >= 1 ? '3× INT · 30 🧪' : '3× Dano · 30 ⚡'">3× Dano &middot; 30 ⚡</div>
+                                <div class="text-xs font-bold" x-text="state.treeSkills?.mag_a1 >= 1 ? 'Transmutação Arcana' : 'Ataque Concentrado'">Ataque Concentrado</div>
+                                <div class="text-[8px] font-normal text-amber-500/80" x-text="state.treeSkills?.mag_a1 >= 1 ? '3× INT · 30 🧪' : '3× Dano · 30 ⚡'">3× Dano &middot; 30 ⚡</div>
                             </div>
                         </div>
                         <span class="text-[10px] font-bold font-mono" x-text="activeCooldownTimer > 0 ? activeCooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
@@ -2076,7 +2363,7 @@
                             <i class="fas fa-hand-holding-medical text-sm" :class="healCooldownTimer > 0 ? 'text-stone-600' : 'text-blue-400'"></i>
                             <div class="text-left">
                                 <div class="text-xs font-bold">Cura Espontânea</div>
-                                <div class="text-[8px] font-normal" :class="healCooldownTimer > 0 ? 'text-stone-500' : 'text-blue-400/80'" x-text="state.treeSkills?.pal_hea >= 1 ? '+35% HP · +Mana · 30 🧪' : '+25% HP · 30 🧪 · 12s CD'">+25% HP &middot; 30 🧪 &middot; 12s CD</div>
+                                <div class="text-[8px] font-normal" :class="healCooldownTimer > 0 ? 'text-stone-500' : 'text-blue-400/80'" x-text="state.treeSkills?.pal_a1 >= 1 ? '+35% HP · +Mana · 30 🧪' : '+25% HP · 30 🧪 · 12s CD'">+25% HP &middot; 30 🧪 &middot; 12s CD</div>
                             </div>
                         </div>
                         <span class="text-[10px] font-bold font-mono" x-text="healCooldownTimer > 0 ? healCooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
@@ -2098,15 +2385,69 @@
                         </button>
                     </template>
                 </div>
+
+                <!-- MINI-WIDGET RETRÁTIL DE MISSÕES ATIVAS DA GUILDA (GDD Expansão 3.2) -->
+                <div class="bg-stone-900/80 border border-stone-800 rounded-lg p-2.5 text-xs">
+                    <div class="flex items-center justify-between cursor-pointer select-none" @click="questWidgetOpen = !questWidgetOpen">
+                        <div class="flex items-center gap-2 font-bold text-amber-400">
+                            <i class="fas fa-scroll text-xs"></i>
+                            <span>Contratos da Guilda (<span x-text="(state.quests || []).filter(q => q.progress >= q.target && !q.claimed).length"></span> prontos)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button @click.stop="switchTab('city')" class="text-[10px] text-stone-400 hover:text-amber-300 underline cursor-pointer">Ir à Guilda</button>
+                            <i class="fas fa-chevron-down text-[10px] text-stone-500 transition-transform" :class="questWidgetOpen ? 'rotate-180' : ''"></i>
+                        </div>
+                    </div>
+                    <div x-show="questWidgetOpen" x-transition class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <template x-for="(q, idx) in (state.quests || [])" :key="q.id || idx">
+                            <div class="bg-stone-950 p-2 rounded border flex flex-col justify-between gap-1"
+                                 :class="q.claimed ? 'border-stone-800 opacity-50' : (q.progress >= q.target ? 'border-green-600/80 bg-green-950/20' : 'border-stone-800')">
+                                <div class="flex items-center justify-between text-[10px]">
+                                    <span class="font-bold text-stone-200 truncate" x-text="q.desc"></span>
+                                    <span class="font-mono text-[9px] shrink-0 ml-1" :class="q.progress >= q.target ? 'text-green-400 font-bold' : 'text-stone-400'" x-text="`${q.progress}/${q.target}`"></span>
+                                </div>
+                                <div class="w-full bg-stone-900 h-1.5 rounded overflow-hidden">
+                                    <div class="h-full transition-all" :class="q.progress >= q.target ? 'bg-green-500' : 'bg-amber-500'" :style="`width: ${Math.min(100, (q.progress / q.target) * 100)}%`"></div>
+                                </div>
+                                <template x-if="q.progress >= q.target && !q.claimed">
+                                    <button @click="claimQuestReward(idx)" class="mt-1 w-full py-1 bg-green-700 hover:bg-green-600 text-white font-bold text-[10px] rounded cursor-pointer">
+                                        Resgatar Recompensa!
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
 
-            <!-- ========== ABA TORRE DOS DESAFIOS (GDD v1.2: Pilar 3 - ROGUELIKE DEDICADO) ========== -->
+            <!-- ========== ABA TORRE DOS DESAFIOS & CHEFE MUNDIAL (GDD v1.2 / v1.6) ========== -->
             <div x-show="activeTab === 'tower'" style="display:none;" class="max-w-3xl mx-auto space-y-4 animate-fade-in">
-                <div class="text-center mb-3">
+                <div class="text-center mb-2">
                     <i class="fas fa-monument text-4xl text-purple-400 mb-2 drop-shadow"></i>
-                    <h2 class="text-2xl text-stone-200 medieval-font">Torre dos Desafios</h2>
-                    <p class="text-stone-400 text-xs">Desbrave os 100 andares do Abismo Infinito (5 monstros por andar, 5º é o Guardião Chefe), decifre enigmas e conquiste Diamantes 💎 raros.</p>
+                    <h2 class="text-2xl text-stone-200 medieval-font">Torre & Desafios Colossais</h2>
+                    <p class="text-stone-400 text-xs">Escale os 100 andares do Abismo Infinito ou teste seu DPS máximo contra o Chefe Mundial Diário!</p>
                 </div>
+
+                <!-- Seletor de Sub-Aba: Torre do Abismo vs Chefe Mundial Diário -->
+                <div class="flex bg-stone-900 p-1 rounded-xl border border-stone-800 gap-1">
+                    <button @click="towerSubTab = 'abyss'"
+                            :class="towerSubTab === 'abyss' ? 'bg-purple-800 text-white shadow-lg border border-purple-500/60' : 'text-stone-400 hover:text-stone-200'"
+                            class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2">
+                        <i class="fas fa-dungeon"></i>
+                        <span>Torre do Abismo (Andar <span x-text="state.tower?.maxFloor || 1"></span>/100)</span>
+                    </button>
+                    <button @click="towerSubTab = 'world_boss'"
+                            :class="towerSubTab === 'world_boss' ? 'bg-gradient-to-r from-red-800 to-amber-800 text-white shadow-lg border border-red-500/60' : 'text-stone-400 hover:text-stone-200'"
+                            class="flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2">
+                        <i class="fas fa-dragon"></i>
+                        <span>Chefe Mundial Diário</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-stone-950/90 text-amber-300 border border-amber-600/50 font-mono"
+                              x-text="`${state.worldBoss?.dailyAttemptsLeft ?? 3}/3`"></span>
+                    </button>
+                </div>
+
+                <!-- ==================== SUB-ABA 1: TORRE DO ABISMO ==================== -->
+                <div x-show="towerSubTab === 'abyss'" class="space-y-4">
 
                 <!-- ESTADO 1: PREPARAÇÃO & SELETOR DE ANDAR (QUANDO NÃO ESTIVER EM BATALHA OU EVENTO) -->
                 <template x-if="!isTowerInCombatOrEvent()">
@@ -2293,14 +2634,14 @@
                         <!-- BARRA DE HABILIDADES ATIVAS (PODERES DISPONÍVEIS NA TORRE) -->
                         <div class="grid gap-2" :class="getClassActiveSkillInfo().unlocked ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'">
                             <button @click="useFocusedAttack()"
-                                    :disabled="!state.tower?.inBattle || (state.hero.energy||0) < 30 && !(state.treeSkills?.mag_foc >= 1 && (state.hero.mana||0) >= 30) || activeCooldownTimer > 0 || state.hero.isDead"
+                                    :disabled="!state.tower?.inBattle || (state.hero.energy||0) < 30 && !(state.treeSkills?.mag_a1 >= 1 && (state.hero.mana||0) >= 30) || activeCooldownTimer > 0 || state.hero.isDead"
                                     class="disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg flex items-center justify-between gap-2 px-3 py-2 transition-all text-xs font-bold shadow cursor-pointer"
                                     :class="activeCooldownTimer > 0 ? 'bg-stone-900 border-stone-700 text-stone-500' : 'bg-amber-950/70 hover:bg-amber-900/80 border-amber-800/60 hover:border-amber-600 text-amber-300'">
                                 <div class="flex items-center gap-2">
                                     <i class="fas fa-bolt text-sm" :class="activeCooldownTimer > 0 ? 'text-stone-600' : 'text-amber-400'"></i>
                                     <div class="text-left">
-                                        <div class="text-xs font-bold" x-text="state.treeSkills?.mag_foc >= 1 ? 'Transmutação Arcana' : 'Ataque Concentrado'">Ataque Concentrado</div>
-                                        <div class="text-[8px] font-normal text-amber-500/80" x-text="state.treeSkills?.mag_foc >= 1 ? '3× INT · 30 🧪' : '3× Dano · 30 ⚡'">3× Dano &middot; 30 ⚡</div>
+                                        <div class="text-xs font-bold" x-text="state.treeSkills?.mag_a1 >= 1 ? 'Transmutação Arcana' : 'Ataque Concentrado'">Ataque Concentrado</div>
+                                        <div class="text-[8px] font-normal text-amber-500/80" x-text="state.treeSkills?.mag_a1 >= 1 ? '3× INT · 30 🧪' : '3× Dano · 30 ⚡'">3× Dano &middot; 30 ⚡</div>
                                     </div>
                                 </div>
                                 <span class="text-[10px] font-bold font-mono" x-text="activeCooldownTimer > 0 ? activeCooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
@@ -2314,7 +2655,7 @@
                                     <i class="fas fa-hand-holding-medical text-sm" :class="healCooldownTimer > 0 ? 'text-stone-600' : 'text-blue-400'"></i>
                                     <div class="text-left">
                                         <div class="text-xs font-bold">Cura Espontânea</div>
-                                        <div class="text-[8px] font-normal" :class="healCooldownTimer > 0 ? 'text-stone-500' : 'text-blue-400/80'" x-text="state.treeSkills?.pal_hea >= 1 ? '+35% HP · +Mana · 30 🧪' : '+25% HP · 30 🧪 · 12s CD'">+25% HP &middot; 30 🧪 &middot; 12s CD</div>
+                                        <div class="text-[8px] font-normal" :class="healCooldownTimer > 0 ? 'text-stone-500' : 'text-blue-400/80'" x-text="state.treeSkills?.pal_a1 >= 1 ? '+35% HP · +Mana · 30 🧪' : '+25% HP · 30 🧪 · 12s CD'">+25% HP &middot; 30 🧪 &middot; 12s CD</div>
                                     </div>
                                 </div>
                                 <span class="text-[10px] font-bold font-mono" x-text="healCooldownTimer > 0 ? healCooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
@@ -2410,6 +2751,249 @@
                         </div>
                     </div>
                 </template>
+                </div>
+
+                <!-- ==================== SUB-ABA 2: CHEFE MUNDIAL DIÁRIO (60s DPS CHECK) ==================== -->
+                <div x-show="towerSubTab === 'world_boss'" style="display:none;" class="space-y-4">
+                    <!-- LOBBY DO CHEFE MUNDIAL -->
+                    <template x-if="!state.worldBoss?.inBattle">
+                        <div class="space-y-4">
+                            <!-- Card Principal do Titã do Dia -->
+                            <div class="panel p-5 bg-gradient-to-br from-red-950/60 via-stone-900 to-amber-950/40 border-red-600/60 shadow-2xl space-y-4">
+                                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div class="flex items-center gap-4 text-center sm:text-left">
+                                        <div class="w-16 h-16 rounded-2xl bg-stone-950 border-2 flex items-center justify-center text-4xl shadow-inner shrink-0"
+                                             :style="`border-color: ${getDailyWorldBoss().color}`">
+                                            <span x-text="getDailyWorldBoss().icon"></span>
+                                        </div>
+                                        <div>
+                                            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                                                <span class="text-[10px] uppercase tracking-widest font-black text-red-400">Titã Colossal do Dia</span>
+                                                <span class="text-[10px] px-2 py-0.5 rounded bg-stone-950 border border-stone-700 text-amber-300 font-bold"
+                                                      x-text="`Elemento: ${getDailyWorldBoss().element}`"></span>
+                                            </div>
+                                            <h3 class="text-xl font-black text-white medieval-font mt-0.5" x-text="getDailyWorldBoss().name"></h3>
+                                            <p class="text-xs text-stone-300 italic mt-0.5" x-text="getDailyWorldBoss().lore"></p>
+                                            <div class="mt-2 inline-flex items-center gap-1.5 text-[11px] bg-red-950/70 border border-red-800/80 text-red-200 px-2.5 py-1 rounded-lg font-bold">
+                                                <i class="fas fa-fire-flame-curved text-amber-400"></i>
+                                                <span x-text="getDailyWorldBoss().trait"></span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Recorde Diário & Tentativas -->
+                                    <div class="bg-stone-950 p-3.5 rounded-xl border border-stone-800 text-center min-w-[180px] shrink-0 space-y-1">
+                                        <div class="text-[10px] uppercase tracking-wider text-stone-400 font-bold">Melhor Dano Causado</div>
+                                        <div class="text-xl font-black text-amber-400 font-mono" x-text="(state.worldBoss?.bestDamage || 0).toLocaleString('pt-BR')"></div>
+                                        <div class="text-[10px] font-bold"
+                                             :class="getWorldBossTierInfo(state.worldBoss?.bestDamage || 0).current ? getWorldBossTierInfo(state.worldBoss?.bestDamage || 0).current.color : 'text-stone-500'"
+                                             x-text="getWorldBossTierInfo(state.worldBoss?.bestDamage || 0).current ? `${getWorldBossTierInfo(state.worldBoss?.bestDamage || 0).current.icon} ${getWorldBossTierInfo(state.worldBoss?.bestDamage || 0).current.name}` : 'Sem Patamar'"></div>
+                                        <div class="pt-1.5 border-t border-stone-850 text-[11px] text-stone-300">
+                                            Tentativas Hoje: <strong class="text-white" x-text="`${state.worldBoss?.dailyAttemptsLeft ?? 3} / ${WORLD_BOSS_DAILY_ATTEMPTS}`"></strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Último Resultado da Batalha -->
+                                <template x-if="state.worldBoss?.lastResult">
+                                    <div class="bg-stone-950/90 border border-amber-700/60 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xl" x-text="state.worldBoss.lastResult.tierIcon"></span>
+                                            <div>
+                                                <div class="font-bold text-amber-300">Última Incursão: <span class="text-white" x-text="state.worldBoss.lastResult.tierName"></span></div>
+                                                <div class="text-[11px] text-stone-300" x-text="state.worldBoss.lastResult.summary"></div>
+                                            </div>
+                                        </div>
+                                        <span class="text-xs font-mono font-bold text-amber-400 shrink-0" x-text="`${(state.worldBoss.lastResult.damage || 0).toLocaleString('pt-BR')} Dano`"></span>
+                                    </div>
+                                </template>
+
+                                <!-- Botões de Ação (Entrar na Batalha de 60s) -->
+                                <div class="flex flex-col sm:flex-row gap-3">
+                                    <button @click="challengeWorldBoss(false)"
+                                            :disabled="(state.worldBoss?.dailyAttemptsLeft || 0) <= 0 || state.hero.isDead"
+                                            class="flex-1 py-3.5 bg-gradient-to-r from-red-700 via-amber-600 to-red-700 hover:from-red-600 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl border-2 border-amber-400 shadow-2xl transition-all flex items-center justify-center gap-2.5 cursor-pointer text-sm uppercase tracking-wider">
+                                        <i class="fas fa-dragon text-lg"></i>
+                                        <span>Desafiar Chefe Mundial (60s DPS Check)</span>
+                                    </button>
+
+                                    <template x-if="(state.worldBoss?.dailyAttemptsLeft || 0) <= 0">
+                                        <button @click="challengeWorldBoss(true)"
+                                                :disabled="(state.resources.diamond || 0) < WORLD_BOSS_EXTRA_COST_DIAMONDS || state.hero.isDead"
+                                                class="px-5 py-3.5 bg-cyan-900 hover:bg-cyan-800 disabled:opacity-40 disabled:cursor-not-allowed text-cyan-100 font-bold rounded-xl border border-cyan-400 shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer text-xs uppercase tracking-wider">
+                                            <i class="fas fa-gem text-cyan-300"></i>
+                                            <span>Tentativa Extra (<span x-text="WORLD_BOSS_EXTRA_COST_DIAMONDS"></span> 💎)</span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <!-- Tabela de Patamares de Dano & Recompensas (Tiers I a VI) -->
+                            <div class="panel p-4 space-y-3">
+                                <div class="flex items-center justify-between border-b border-stone-800 pb-2">
+                                    <h4 class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <i class="fas fa-trophy"></i> Patamares de Recompensa por Dano (60 Segundos)
+                                    </h4>
+                                    <span class="text-[10px] text-stone-400">O Chefe tem HP infinito — cause o máximo de dano possível!</span>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                                    <template x-for="t in WORLD_BOSS_TIERS" :key="t.tier">
+                                        <div class="p-3 rounded-xl border bg-stone-950/90 flex flex-col justify-between transition-all"
+                                             :class="(state.worldBoss?.bestDamage || 0) >= t.minDmg ? 'border-amber-500/80 bg-amber-950/15 shadow-md' : 'border-stone-800 opacity-85'">
+                                            <div>
+                                                <div class="flex items-center justify-between mb-1">
+                                                    <span class="text-xs font-bold flex items-center gap-1.5" :class="t.color">
+                                                        <span x-text="t.icon"></span>
+                                                        <span x-text="t.name"></span>
+                                                    </span>
+                                                    <template x-if="(state.worldBoss?.bestDamage || 0) >= t.minDmg">
+                                                        <span class="text-[9px] bg-green-950 text-green-300 border border-green-700 px-1.5 py-0.5 rounded font-bold">Alcançado</span>
+                                                    </template>
+                                                </div>
+                                                <div class="text-[11px] font-mono text-stone-300 mb-2">
+                                                    Meta: <strong class="text-white" x-text="t.minDmg.toLocaleString('pt-BR') + '+ Dano'"></strong>
+                                                </div>
+                                            </div>
+                                            <div class="bg-stone-900 p-2 rounded border border-stone-850 text-[10px] space-y-0.5 text-stone-300">
+                                                <div>🪙 <strong class="text-[#fbbf24]" x-text="t.gold.toLocaleString('pt-BR')"></strong> Ouro &middot; 💎 <strong class="text-cyan-300" x-text="t.diamonds"></strong></div>
+                                                <div>⚡ <strong class="text-purple-300" x-text="t.essence"></strong> Essência &middot; 🧱 <strong class="text-stone-200" x-text="t.iron"></strong> Ferro</div>
+                                                <template x-if="t.itemRarity">
+                                                    <div class="text-amber-300 font-bold">🎁 Equipamento de Conjunto (<span class="uppercase" x-text="t.itemRarity"></span>)</div>
+                                                </template>
+                                                <template x-if="t.ancestral > 0">
+                                                    <div class="text-pink-400 font-black">💠 +<span x-text="t.ancestral"></span> Diamante Ancestral!</div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- ARENA DE COMBATE EM TEMPO REAL DO CHEFE MUNDIAL (60s) -->
+                    <template x-if="state.worldBoss?.inBattle">
+                        <div class="panel p-5 bg-gradient-to-br from-red-950/50 via-stone-950 to-stone-900 border-2 border-red-600/80 shadow-2xl space-y-4">
+                            <!-- Cronômetro de 60s e Dano Total Acumulado -->
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-3 border-b border-stone-800 pb-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-red-950 border-2 border-red-500 flex items-center justify-center text-3xl animate-pulse">
+                                        <span x-text="getDailyWorldBoss().icon"></span>
+                                    </div>
+                                    <div>
+                                        <div class="text-[10px] uppercase tracking-widest text-red-400 font-black">Fenda do Chefe Mundial</div>
+                                        <h3 class="text-lg font-black text-white medieval-font" x-text="getDailyWorldBoss().name"></h3>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-4">
+                                    <div class="text-right">
+                                        <div class="text-[10px] uppercase text-stone-400 font-bold">Dano Acumulado</div>
+                                        <div class="text-2xl font-black text-amber-400 font-mono" x-text="(state.worldBoss?.damageDealt || 0).toLocaleString('pt-BR')"></div>
+                                    </div>
+                                    <div class="bg-stone-950 px-3.5 py-2 rounded-xl border border-red-600/70 text-center">
+                                        <div class="text-[9px] uppercase text-red-300 font-bold">Tempo Restante</div>
+                                        <div class="text-xl font-black font-mono text-white" x-text="`${Math.max(0, state.worldBoss?.timer || 0).toFixed(1)}s`"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Barra de Progresso do Patamar (Tier Atual -> Próximo Tier) -->
+                            <div class="bg-stone-950 p-3 rounded-xl border border-stone-800 space-y-1.5">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold">
+                                        Patamar Atual:
+                                        <strong :class="getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).current ? getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).current.color : 'text-stone-400'"
+                                                x-text="getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).current ? `${getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).current.icon} ${getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).current.name}` : 'Buscando Tier I (500 Dano)'"></strong>
+                                    </span>
+                                    <template x-if="getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).next">
+                                        <span class="text-[11px] text-stone-400 font-mono">
+                                            Próximo: <strong class="text-amber-300" x-text="`${getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).next.name} (${getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).next.minDmg.toLocaleString('pt-BR')})`"></strong>
+                                        </span>
+                                    </template>
+                                    <template x-if="!getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).next">
+                                        <span class="text-[11px] text-pink-400 font-black">👑 PATAMAR MÁXIMO IMORTAL ATINGIDO!</span>
+                                    </template>
+                                </div>
+                                <div class="w-full bg-stone-900 h-2.5 rounded-full overflow-hidden border border-stone-800">
+                                    <div class="bg-gradient-to-r from-amber-600 via-red-500 to-purple-500 h-full transition-all duration-150"
+                                         :style="`width: ${getWorldBossTierInfo(state.worldBoss?.damageDealt || 0).progressPct}%`"></div>
+                                </div>
+                            </div>
+
+                            <!-- Status do Herói (HP, Energia, Mana) -->
+                            <div class="bg-stone-950 p-3 rounded-xl border border-stone-800 space-y-2">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="font-bold text-white"><i class="fas fa-shield-heart text-green-400 mr-1"></i> <span x-text="state.hero.name"></span></span>
+                                    <span class="font-mono font-bold text-green-400" x-text="`${Math.max(0, Math.floor(state.hero.hp))} / ${state.derived.hpMax} HP`"></span>
+                                </div>
+                                <div class="w-full bg-stone-900 h-2.5 rounded overflow-hidden border border-stone-800">
+                                    <div class="bg-green-500 h-full transition-all duration-150" :style="`width: ${Math.min(100, Math.max(0, (state.hero.hp / state.derived.hpMax) * 100))}%`"></div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 pt-1">
+                                    <div>
+                                        <div class="flex justify-between text-[9px] text-amber-400 font-bold mb-0.5">
+                                            <span>⚡ Energia</span>
+                                            <span x-text="`${Math.floor(state.hero.energy || 0)}/${state.derived.energyMax || 100}`"></span>
+                                        </div>
+                                        <div class="w-full bg-stone-900 h-1.5 rounded overflow-hidden">
+                                            <div class="bg-amber-500 h-full" :style="`width: ${Math.min(100, Math.max(0, ((state.hero.energy || 0) / (state.derived.energyMax || 100)) * 100))}%`"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="flex justify-between text-[9px] text-blue-400 font-bold mb-0.5">
+                                            <span>🧪 Mana</span>
+                                            <span x-text="`${Math.floor(state.hero.mana || 0)}/${state.derived.manaMax || 100}`"></span>
+                                        </div>
+                                        <div class="w-full bg-stone-900 h-1.5 rounded overflow-hidden">
+                                            <div class="bg-blue-500 h-full" :style="`width: ${Math.min(100, Math.max(0, ((state.hero.mana || 0) / (state.derived.manaMax || 100)) * 100))}%`"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Habilidades Ativas no Chefe Mundial -->
+                            <div class="grid gap-2" :class="getClassActiveSkillInfo().unlocked ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'">
+                                <button @click="useFocusedAttack()"
+                                        :disabled="activeCooldownTimer > 0 || state.hero.isDead"
+                                        class="disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg flex items-center justify-between gap-2 px-3 py-2 transition-all text-xs font-bold shadow cursor-pointer bg-amber-950/70 hover:bg-amber-900/80 border-amber-700 text-amber-300">
+                                    <span>⚡ <span x-text="state.treeSkills?.mag_a1 >= 1 ? 'Transmutação Arcana' : 'Ataque Concentrado'"></span></span>
+                                    <span class="font-mono text-[10px]" x-text="activeCooldownTimer > 0 ? activeCooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
+                                </button>
+                                <button @click="useQuickHeal()"
+                                        :disabled="healCooldownTimer > 0 || state.hero.isDead"
+                                        class="disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg flex items-center justify-between gap-2 px-3 py-2 transition-all text-xs font-bold shadow cursor-pointer bg-blue-950/70 hover:bg-blue-900/80 border-blue-700 text-blue-300">
+                                    <span>🧪 Cura Espontânea</span>
+                                    <span class="font-mono text-[10px]" x-text="healCooldownTimer > 0 ? healCooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
+                                </button>
+                                <template x-if="getClassActiveSkillInfo().unlocked">
+                                    <button @click="useClassActiveSkill()"
+                                            :disabled="getClassActiveSkillInfo().cooldownTimer > 0 || state.hero.isDead"
+                                            class="disabled:opacity-40 disabled:cursor-not-allowed border rounded-lg flex items-center justify-between gap-2 px-3 py-2 transition-all text-xs font-bold shadow cursor-pointer"
+                                            :class="getClassActiveSkillInfo().bgClass">
+                                        <span x-text="getClassActiveSkillInfo().name"></span>
+                                        <span class="font-mono text-[10px]" x-text="getClassActiveSkillInfo().cooldownTimer > 0 ? getClassActiveSkillInfo().cooldownTimer.toFixed(1) + 's' : 'PRONTO'"></span>
+                                    </button>
+                                </template>
+                            </div>
+
+                            <!-- Logs em Tempo Real -->
+                            <div class="bg-stone-950 p-2.5 rounded-lg border border-stone-850 h-32 overflow-y-auto custom-scroll font-mono text-[10px] space-y-1">
+                                <template x-for="(lg, i) in (state.worldBoss?.logs || [])" :key="i">
+                                    <div class="text-stone-300" x-text="lg"></div>
+                                </template>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button @click="leaveWorldBoss()"
+                                        class="px-4 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-bold rounded-lg border border-stone-700 cursor-pointer">
+                                    Encerrar e Resgatar Recompensa Atual
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
             </div>
 
             <!-- ========== ABA DOMÍNIO ========== -->
@@ -2491,13 +3075,40 @@
                     </button>
                 </div>
 
+                <!-- Filtro de Categorias de Edifícios (GDD Expansão 4.1) -->
+                <div class="flex flex-wrap items-center justify-between gap-2 bg-stone-900/90 p-2 rounded-lg border border-stone-800">
+                    <span class="text-xs font-bold text-stone-400 px-2"><i class="fas fa-layer-group text-amber-400 mr-1"></i> Setores do Reino:</span>
+                    <div class="flex flex-wrap gap-1 text-[11px]">
+                        <button @click="domainCategory = 'all'"
+                                :class="domainCategory === 'all' ? 'bg-amber-600 text-stone-950 font-black' : 'bg-stone-950 text-stone-400 hover:text-white'"
+                                class="px-3 py-1 rounded border border-stone-800 transition-all cursor-pointer">
+                            Todos
+                        </button>
+                        <button @click="domainCategory = 'gold'"
+                                :class="domainCategory === 'gold' ? 'bg-amber-600 text-stone-950 font-black' : 'bg-stone-950 text-stone-400 hover:text-white'"
+                                class="px-3 py-1 rounded border border-stone-800 transition-all cursor-pointer">
+                            🪙 Economia & Ouro
+                        </button>
+                        <button @click="domainCategory = 'resources'"
+                                :class="domainCategory === 'resources' ? 'bg-emerald-600 text-stone-950 font-black' : 'bg-stone-950 text-stone-400 hover:text-white'"
+                                class="px-3 py-1 rounded border border-stone-800 transition-all cursor-pointer">
+                            ⛏️ Extração de Materiais
+                        </button>
+                        <button @click="domainCategory = 'support'"
+                                :class="domainCategory === 'support' ? 'bg-purple-600 text-white font-black' : 'bg-stone-950 text-stone-400 hover:text-white'"
+                                class="px-3 py-1 rounded border border-stone-800 transition-all cursor-pointer">
+                            ⚔️ Militar & Erudição
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Grid de Edifícios -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-                    <template x-for="(b, id) in state.buildings" :key="id">
+                    <template x-for="[id, b] in getFilteredBuildings()" :key="id">
                         <div class="panel p-3.5 flex flex-col justify-between hover:border-stone-500 transition-all bg-stone-900/90 shadow-md">
                             <div class="text-center mb-3">
                                 <div class="w-12 h-12 mx-auto mb-2 rounded-lg bg-stone-950 border border-stone-800 flex items-center justify-center relative overflow-hidden">
-                                    <img :src="`/assets/domain/${id}.png`"
+                                    <img :src="`./assets/domain/${id}.png`"
                                          x-on:load="handleAssetLoad($event)"
                                          x-on:error="handleAssetError($event)"
                                          class="w-9 h-9 object-contain transition-opacity duration-200 z-10"
@@ -2510,13 +3121,24 @@
                                     Nível <span x-text="b.qty || 0" class="font-bold" :class="(b.qty || 0) >= 10 ? 'text-amber-400' : 'text-[#fbbf24]'"></span> / 10
                                 </div>
                                 <div class="bg-stone-950 p-2 rounded border border-stone-850 space-y-1">
-                                    <div class="text-[11px] text-green-400 font-bold flex items-center justify-center gap-1">
-                                        <i class="fas fa-coins text-[10px]"></i>
-                                        <span>Gera <span x-text="b.prod"></span> Ouro/s cada</span>
-                                    </div>
-                                    <div class="text-[10px] text-stone-400 font-medium">
-                                        Total: <span class="text-amber-300 font-bold" x-text="`+${((b.qty || 0) * (b.prod || 0)).toFixed(1)}/s`"></span>
-                                    </div>
+                                    <template x-if="(b.prod || 0) > 0">
+                                        <div>
+                                            <div class="text-[11px] font-bold flex items-center justify-center gap-1"
+                                                 :class="b.resource === 'gold' ? 'text-green-400' : 'text-cyan-300'">
+                                                <i class="fas text-[10px]" :class="b.resource === 'gold' ? 'fa-coins' : 'fa-boxes-packing'"></i>
+                                                <span x-text="`Gera ${b.prod} ${{gold:'Ouro', wood:'Madeira', scrap:'Sucata', iron:'Ferro', essence:'Essência'}[b.resource] || 'Ouro'}/s`"></span>
+                                            </div>
+                                            <div class="text-[10px] text-stone-400 font-medium">
+                                                Total: <span class="text-amber-300 font-bold" x-text="`+${((b.qty || 0) * (b.prod || 0)).toFixed(2)}/s`"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="b.utilityDesc">
+                                        <div class="text-[10px] text-purple-300 font-bold pt-1 border-t border-stone-900 flex items-center justify-center gap-1">
+                                            <i class="fas fa-sparkles text-[9px] text-amber-400"></i>
+                                            <span x-text="b.utilityDesc"></span>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
 
@@ -2568,15 +3190,25 @@
                 <template x-if="state.pets?.tamerUnlocked">
                     <div class="space-y-4">
                         <!-- Navegação de Sub-Abas de Pets -->
-                        <div class="flex items-center justify-between bg-stone-900/90 p-2 rounded-lg border border-stone-800">
-                            <div class="text-xs font-bold text-stone-400">
-                                Companheiros de Jornada (<span class="text-[#fbbf24]" x-text="(state.pets?.owned || []).length"></span>/8 Possuídos)
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-stone-900/90 p-2 rounded-lg border border-stone-800">
+                            <div class="text-xs font-bold text-stone-400 flex items-center gap-2">
+                                <span>Companheiros (<span class="text-[#fbbf24]" x-text="(state.pets?.owned || []).length"></span>/8 Possuídos)</span>
+                                <span class="text-[10px] bg-stone-950 border border-emerald-700/60 text-emerald-300 px-2 py-0.5 rounded">Todos os possuídos concedem bônus passivo!</span>
                             </div>
                             <div class="flex bg-stone-950 p-0.5 rounded border border-stone-800 text-[11px]">
                                 <button @click="petTab = 'list'"
                                         :class="petTab === 'list' ? 'bg-amber-700 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
                                         class="px-3 py-1 rounded font-bold transition-all cursor-pointer">
-                                    <i class="fas fa-paw mr-1"></i> Mascotes
+                                    <i class="fas fa-paw mr-1"></i> Mascotes & Afinidade
+                                </button>
+                                <button @click="petTab = 'talents'"
+                                        :class="petTab === 'talents' ? 'bg-purple-700 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
+                                        class="px-3 py-1 rounded font-bold transition-all cursor-pointer flex items-center gap-1">
+                                    <i class="fas fa-dna"></i>
+                                    <span>Talentos Bestiais</span>
+                                    <template x-if="(state.pets?.talentPoints || 0) > 0">
+                                        <span class="bg-amber-500 text-stone-950 text-[9px] font-black px-1.5 rounded-full" x-text="state.pets.talentPoints"></span>
+                                    </template>
                                 </button>
                                 <button @click="petTab = 'expeditions'"
                                         :class="petTab === 'expeditions' ? 'bg-amber-700 text-white shadow' : 'text-stone-400 hover:text-stone-200'"
@@ -2586,14 +3218,14 @@
                             </div>
                         </div>
 
-                        <!-- SUB-ABA 1: LISTA DE MASCOTES -->
+                        <!-- SUB-ABA 1: LISTA DE MASCOTES & AFINIDADE -->
                         <div x-show="petTab === 'list'" class="space-y-4">
                             <!-- Banner do Pet Ativo -->
                             <div class="panel p-4 bg-gradient-to-r from-amber-950/30 via-stone-900 to-stone-900 border-amber-600/40 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div class="flex items-center gap-3 text-center sm:text-left">
                                     <template x-if="state.pets?.active">
                                         <div class="w-14 h-14 bg-amber-900/40 rounded-xl border-2 border-amber-500 flex items-center justify-center text-3xl shadow-lg shadow-amber-950/40 animate-bounce relative overflow-hidden">
-                                            <img :src="`/assets/pets/${state.pets.active}.png`"
+                                            <img :src="`./assets/pets/${state.pets.active}.png`"
                                                  x-on:load="handleAssetLoad($event)"
                                                  x-on:error="handleAssetError($event)"
                                                  class="w-11 h-11 object-contain transition-opacity duration-200 z-10"
@@ -2608,9 +3240,14 @@
                                         </div>
                                     </template>
                                     <div>
-                                        <div class="text-[10px] text-stone-500 uppercase tracking-widest font-bold">Companheiro em Combate</div>
-                                        <div class="text-sm font-bold text-white" x-text="state.pets?.active ? PETS.find(p => p.id === state.pets.active)?.name : 'Nenhum pet ativo'"></div>
-                                        <div class="text-xs text-amber-400 font-bold" x-text="state.pets?.active ? PETS.find(p => p.id === state.pets.active)?.effectDesc : 'Selecione uma fera abaixo para acompanhar sua jornada.'"></div>
+                                        <div class="flex items-center justify-center sm:justify-start gap-2">
+                                            <span class="text-[10px] text-stone-400 uppercase tracking-widest font-bold">Companheiro Ativo em Combate</span>
+                                            <template x-if="state.pets?.active">
+                                                <span class="text-[9px] bg-amber-950 border border-amber-500 text-amber-300 px-1.5 py-0.5 rounded font-bold">🔥 Sinergia 1.5× + Ataque Conjunto</span>
+                                            </template>
+                                        </div>
+                                        <div class="text-sm font-bold text-white" x-text="state.pets?.active ? `${PETS.find(p => p.id === state.pets.active)?.name} (Afinidade Nv. ${getPetLevel(state.pets.active)}/${PET_MAX_LEVEL})` : 'Nenhum pet equipado'"></div>
+                                        <div class="text-xs text-amber-400 font-bold" x-text="state.pets?.active ? getPetBonusText(PETS.find(p => p.id === state.pets.active)) : 'Equipe um mascote para atacar junto com você e amplificar o bônus dele em 1.5×!'"></div>
                                     </div>
                                 </div>
 
@@ -2621,15 +3258,28 @@
                                 </template>
                             </div>
 
-                            <!-- Grid dos 8 Pets do GDD -->
+                            <!-- Grid dos 8 Pets do GDD com Nível de Afinidade e Treinamento -->
                             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                 <template x-for="pet in PETS" :key="pet.id">
                                     <div class="bg-stone-900/90 border rounded-lg p-3.5 flex flex-col justify-between transition-all"
                                          :class="state.pets?.active === pet.id ? 'border-amber-500 shadow-lg shadow-amber-950/30' : (state.pets?.owned?.includes(pet.id) ? 'border-stone-700' : 'border-stone-800 opacity-90')">
                                         <div class="text-center mb-3">
+                                            <div class="flex items-center justify-between mb-1">
+                                                <template x-if="state.pets?.owned?.includes(pet.id)">
+                                                    <span class="text-[9px] bg-stone-950 border border-amber-600/60 text-amber-300 px-1.5 py-0.5 rounded font-bold"
+                                                          x-text="`Nv. ${getPetLevel(pet.id)}/${PET_MAX_LEVEL}`"></span>
+                                                </template>
+                                                <template x-if="!state.pets?.owned?.includes(pet.id)">
+                                                    <span class="text-[9px] text-stone-500">Não Adotado</span>
+                                                </template>
+                                                <template x-if="state.pets?.active === pet.id">
+                                                    <span class="text-[9px] bg-amber-500 text-stone-950 font-black px-1.5 py-0.5 rounded">1.5× ATIVO</span>
+                                                </template>
+                                            </div>
+
                                             <div class="w-12 h-12 mx-auto rounded-full flex items-center justify-center text-2xl mb-2 bg-stone-950 border relative overflow-hidden"
                                                  :style="`border-color: ${pet.color}`">
-                                                <img :src="`/assets/pets/${pet.id}.png`"
+                                                <img :src="`./assets/pets/${pet.id}.png`"
                                                      x-on:load="handleAssetLoad($event)"
                                                      x-on:error="handleAssetError($event)"
                                                      class="w-9 h-9 object-contain transition-opacity duration-200 z-10"
@@ -2638,21 +3288,44 @@
                                                 <span x-text="pet.emoji"></span>
                                             </div>
                                             <h4 class="text-xs font-bold text-white mb-0.5" x-text="pet.name"></h4>
-                                            <p class="text-[10px] text-amber-400 font-bold" x-text="pet.effectDesc"></p>
+                                            <p class="text-[10px] text-amber-400 font-bold" x-text="getPetBonusText(pet)"></p>
+
+                                            <!-- Barra de XP de Afinidade -->
+                                            <template x-if="state.pets?.owned?.includes(pet.id)">
+                                                <div class="mt-2 space-y-1">
+                                                    <div class="flex justify-between text-[9px] text-stone-400 font-mono">
+                                                        <span>Afinidade</span>
+                                                        <span x-text="getPetLevel(pet.id) >= PET_MAX_LEVEL ? 'MÁX' : `${getPetXp(pet.id)}/${getPetNextXp(pet.id)} XP`"></span>
+                                                    </div>
+                                                    <div class="w-full bg-stone-950 h-1.5 rounded overflow-hidden border border-stone-800">
+                                                        <div class="bg-amber-500 h-full transition-all"
+                                                             :style="`width: ${getPetLevel(pet.id) >= PET_MAX_LEVEL ? 100 : Math.min(100, (getPetXp(pet.id) / getPetNextXp(pet.id)) * 100)}%`"></div>
+                                                    </div>
+                                                </div>
+                                            </template>
                                         </div>
 
-                                        <div>
+                                        <div class="space-y-1.5">
                                             <!-- Se já possui o pet -->
                                             <template x-if="state.pets?.owned?.includes(pet.id)">
-                                                <div>
+                                                <div class="space-y-1.5">
+                                                    <template x-if="getPetLevel(pet.id) < PET_MAX_LEVEL">
+                                                        <button @click="trainPetById(pet.id)"
+                                                                :disabled="(state.resources.gold || 0) < getPetTrainCost(pet.id)"
+                                                                class="w-full py-1 bg-emerald-950/80 hover:bg-emerald-900 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-300 text-[10px] font-bold rounded border border-emerald-700/70 transition-colors cursor-pointer flex items-center justify-center gap-1">
+                                                            <span>🍖 Treinar (+90 XP)</span>
+                                                            <span class="text-[#fbbf24]" x-text="`${getPetTrainCost(pet.id)} 🪙`"></span>
+                                                        </button>
+                                                    </template>
+
                                                     <template x-if="state.pets?.active === pet.id">
                                                         <div class="w-full py-1.5 bg-amber-950/60 border border-amber-600 text-amber-300 text-xs font-bold rounded text-center flex items-center justify-center gap-1">
-                                                            <i class="fas fa-check"></i> <span>Ativo</span>
+                                                            <i class="fas fa-check"></i> <span>Em Combate</span>
                                                         </div>
                                                     </template>
                                                     <template x-if="state.pets?.active !== pet.id">
                                                         <button @click="equipPet(pet.id)" class="w-full py-1.5 bg-stone-800 hover:bg-stone-750 text-white text-xs font-bold rounded border border-stone-600 transition-colors cursor-pointer">
-                                                            Equipar
+                                                            Equipar (1.5×)
                                                         </button>
                                                     </template>
                                                 </div>
@@ -2665,6 +3338,61 @@
                                                         class="w-full py-1.5 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded border border-amber-500 shadow transition-colors flex items-center justify-center gap-1 cursor-pointer">
                                                     <i class="fas fa-coins text-amber-300 text-[10px]"></i>
                                                     <span x-text="`${pet.cost.toLocaleString('pt-BR')} 🪙`"></span>
+                                                </button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- SUB-ABA 2: ÁRVORE DE TALENTOS BESTIAIS (GDD Expansão 1.6) -->
+                        <div x-show="petTab === 'talents'" style="display:none;" class="space-y-4">
+                            <div class="panel p-4 bg-gradient-to-r from-purple-950/50 via-stone-900 to-amber-950/30 border-purple-600/50 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <div>
+                                    <h3 class="text-sm font-bold text-white medieval-font flex items-center gap-2">
+                                        <i class="fas fa-dna text-purple-400"></i>
+                                        <span>Árvore de Talentos Bestiais</span>
+                                    </h3>
+                                    <p class="text-xs text-stone-300 mt-0.5">Ganhe <strong class="text-amber-300">+1 Ponto de Talento Bestial</strong> ao adotar cada mascote e sempre que qualquer mascote subir de <strong>Nível de Afinidade</strong> (em combate, expedições ou treinamento)!</p>
+                                </div>
+                                <div class="bg-stone-950 px-4 py-2.5 rounded-xl border border-purple-500/70 text-center shrink-0">
+                                    <div class="text-[9px] uppercase tracking-wider text-purple-300 font-bold">Pontos Bestiais</div>
+                                    <div class="text-2xl font-black text-amber-400 font-mono" x-text="state.pets?.talentPoints || 0"></div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <template x-for="tal in PET_TALENTS" :key="tal.id">
+                                    <div class="panel p-4 bg-stone-900/90 border flex flex-col justify-between transition-all"
+                                         :class="getPetTalentLevel(tal.id) >= tal.maxLevel ? 'border-amber-500/70 bg-amber-950/10' : 'border-stone-800 hover:border-purple-500/60'">
+                                        <div>
+                                            <div class="flex items-center justify-between mb-2">
+                                                <div class="flex items-center gap-2.5">
+                                                    <div class="w-10 h-10 rounded-lg bg-stone-950 border border-stone-700 flex items-center justify-center text-lg" :class="tal.color">
+                                                        <i class="fas" :class="tal.icon"></i>
+                                                    </div>
+                                                    <div>
+                                                        <h4 class="text-xs font-bold text-white" x-text="tal.name"></h4>
+                                                        <span class="text-[10px] font-mono text-amber-400 font-bold" x-text="`Nível ${getPetTalentLevel(tal.id)} / ${tal.maxLevel}`"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <p class="text-[11px] text-stone-300 leading-relaxed mb-3" x-text="tal.desc"></p>
+                                        </div>
+
+                                        <div>
+                                            <template x-if="getPetTalentLevel(tal.id) >= tal.maxLevel">
+                                                <div class="w-full py-2 bg-amber-950/50 border border-amber-600/60 text-amber-300 text-xs font-bold rounded text-center">
+                                                    <i class="fas fa-crown mr-1"></i> Maximizado
+                                                </div>
+                                            </template>
+                                            <template x-if="getPetTalentLevel(tal.id) < tal.maxLevel">
+                                                <button @click="upgradePetTalent(tal.id)"
+                                                        :disabled="(state.pets?.talentPoints || 0) < tal.cost"
+                                                        class="w-full py-2 bg-purple-800 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold rounded border border-purple-500 shadow transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                                                    <i class="fas fa-arrow-up"></i>
+                                                    <span>Evoluir Talento (<span x-text="tal.cost"></span> Pt)</span>
                                                 </button>
                                             </template>
                                         </div>
@@ -2823,7 +3551,7 @@
                                         </template>
                                         <template x-if="(state.bestiary[mob.id] || 0) > 0">
                                             <div class="w-full h-full flex items-center justify-center relative">
-                                                <img :src="`/assets/monsters/${mob.id}.png`"
+                                                <img :src="`./assets/monsters/${mob.id}.png`"
                                                      x-on:load="handleAssetLoad($event)"
                                                      x-on:error="handleAssetError($event)"
                                                      class="w-8 h-8 object-contain transition-opacity duration-200 z-10"
@@ -3018,6 +3746,64 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 4. GALERIA DE CONQUISTAS DE IDLETON (GDD Seção 21) -->
+                <div class="panel p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-stone-800 pb-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-medal text-amber-400"></i>
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Conquistas & Façanhas de Idleton</h3>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950/60 border border-amber-700/50 text-amber-300">
+                            Resgatadas: <span x-text="Object.keys(state.achievementsClaimed || {}).length"></span> / <span x-text="ACHIEVEMENTS.length"></span>
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <template x-for="ach in ACHIEVEMENTS" :key="ach.id">
+                            <div class="bg-stone-900/90 p-3 rounded-lg border flex flex-col justify-between gap-2 transition-all"
+                                 :class="isAchievementClaimed(ach.id) ? 'border-emerald-800/50 bg-emerald-950/10' : (isAchievementUnlocked(ach) ? 'border-amber-500 shadow-md shadow-amber-950/30' : 'border-stone-800')">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-stone-950 border border-stone-800 flex items-center justify-center text-lg shrink-0" :class="ach.color">
+                                        <i class="fas" :class="ach.icon"></i>
+                                    </div>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center justify-between gap-1">
+                                            <h4 class="text-xs font-bold text-white truncate" x-text="ach.name"></h4>
+                                            <template x-if="isAchievementClaimed(ach.id)">
+                                                <span class="text-[9px] bg-emerald-950 border border-emerald-700 text-emerald-300 px-1.5 py-0.5 rounded font-bold shrink-0">Concluída</span>
+                                            </template>
+                                        </div>
+                                        <p class="text-[10px] text-stone-400 leading-tight mt-0.5" x-text="ach.desc"></p>
+                                        <div class="text-[10px] font-bold mt-1 flex items-center gap-2">
+                                            <span class="text-cyan-300">+<span x-text="ach.rewardDiamonds"></span> 💎</span>
+                                            <span class="text-[#fbbf24]">+<span x-text="ach.rewardGold.toLocaleString('pt-BR')"></span> 🪙</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <div class="flex justify-between text-[9px] font-mono text-stone-400 mb-1">
+                                        <span>Progresso</span>
+                                        <span x-text="`${Math.min(ach.target, getAchievementProgress(ach)).toLocaleString('pt-BR')} / ${ach.target.toLocaleString('pt-BR')}`"></span>
+                                    </div>
+                                    <div class="w-full bg-stone-950 h-1.5 rounded overflow-hidden border border-stone-800">
+                                        <div class="h-full transition-all"
+                                             :class="isAchievementUnlocked(ach) ? 'bg-emerald-500' : 'bg-amber-500'"
+                                             :style="`width: ${Math.min(100, (getAchievementProgress(ach) / ach.target) * 100)}%`"></div>
+                                    </div>
+
+                                    <template x-if="isAchievementUnlocked(ach) && !isAchievementClaimed(ach.id)">
+                                        <button @click="claimAchievement(ach.id)"
+                                                class="mt-2 w-full py-1.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-black text-xs rounded border border-amber-300 shadow cursor-pointer transition-transform hover:scale-[1.01]">
+                                            🎁 Resgatar Prêmio!
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
             </div>
 
             <!-- ========== ABA ASCENSÃO & PRESTÍGIO (GDD: Seção 21) ========== -->
@@ -3136,7 +3922,7 @@
                             </div>
                         </div>
 
-                        <button @click="if(confirm('Tem certeza de que deseja realizar a Ascensão? TUDO será resetado (nível, equipamentos, torre, bestiário, pets) em troca de Diamantes Ancestrais e seus Perks permanentes!')) ascendHero()"
+                        <button @click="if(confirm('Tem certeza de que deseja realizar a Ascensão? Seu herói renascerá no Nível 1 com os Diamantes e Bênçãos eternas!')) ascendHero()"
                                 class="px-8 py-3.5 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-bold text-sm rounded-xl border border-cyan-300 shadow-2xl transition-all flex items-center justify-center gap-2 mx-auto cursor-pointer">
                             <i class="fas fa-crown"></i>
                             <span>Realizar Ascensão Divina</span>
@@ -3153,7 +3939,7 @@
                         </div>
                         <h4 class="font-bold text-sm text-stone-400 medieval-font">Bênçãos Ancestrais Seladas</h4>
                         <p class="text-xs text-stone-500 max-w-md mx-auto">
-                            As Bênçãos Ancestrais permanecem adormecidas. Realize sua 1ª Ascensão Divina (disponível no Nível 25) para despertar a Árvore de Bênçãos Eternas da sua Linhagem e gastar seus Diamantes Ancestrais 💠.
+                            As Bênçãos Ancestrais permanecem adormecidas. Realize sua 1ª Ascensão Divina (disponível no Nível 50) para despertar a Árvore de Bênçãos Eternas da sua Linhagem e gastar seus Diamantes 💎.
                         </p>
                     </div>
                 </template>
@@ -3175,7 +3961,7 @@
                                     <div class="flex items-start gap-3 mb-3">
                                         <div class="w-10 h-10 rounded-lg bg-stone-950 flex items-center justify-center border shrink-0 relative overflow-hidden"
                                              :style="`border-color: ${perk.color}; color: ${perk.color}`">
-                                            <img :src="`/assets/ascension/${perk.id}.png`"
+                                            <img :src="`./assets/ascension/${perk.id}.png`"
                                                  x-on:load="handleAssetLoad($event)"
                                                  x-on:error="handleAssetError($event)"
                                                  class="w-7 h-7 object-contain transition-opacity duration-200 z-10"
@@ -3228,7 +4014,7 @@
                         <div class="text-center mt-2">
                             <!-- Ícone do Item -->
                             <div class="w-16 h-16 mx-auto bg-stone-800 border-2 rounded flex items-center justify-center mb-3 shadow-inner relative" :style="`border-color: ${state.inventory[selectedItemIndex].color}`">
-                                <!-- Imagem Customizada (se adicionada na pasta public/assets/items/) -->
+                                <!-- Imagem Customizada (se adicionada na pasta public./assets/items/) -->
                                 <img :src="getItemAssetUrl(state.inventory[selectedItemIndex])"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"
@@ -3325,7 +4111,7 @@
                         <div class="text-center mt-2">
                             <!-- Ícone do Item -->
                             <div class="w-16 h-16 mx-auto bg-stone-800 border-2 rounded flex items-center justify-center mb-3 shadow-inner relative" :style="`border-color: ${state.equipment[selectedEquippedSlot].color}`">
-                                <!-- Imagem Customizada (se adicionada na pasta public/assets/items/) -->
+                                <!-- Imagem Customizada (se adicionada na pasta public./assets/items/) -->
                                 <img :src="getItemAssetUrl(state.equipment[selectedEquippedSlot])"
                                      x-on:load="handleAssetLoad($event)"
                                      x-on:error="handleAssetError($event)"

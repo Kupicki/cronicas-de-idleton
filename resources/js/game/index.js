@@ -1,14 +1,22 @@
 import {
     MONSTER_TYPES,
+    ZONE_BIOMES,
+    HERO_TITLES,
+    MONSTER_AFFIXES,
+    EXPLORATION_EVENTS,
+    TAVERN_CONTRACT_TEMPLATES,
     ORACLE_BUFFS,
     ORACLE_PROPHECIES,
     TAVERN_RUMORS,
     MARKET_ITEMS,
+    MARKET_TRADES,
+    BLACK_MARKET_OFFERS,
     PETS,
     TAMER_COST,
     BESTIARY_MILESTONES,
     BESTIARY_TITLES,
     QUEST_TYPES,
+    ACHIEVEMENTS,
     CRAFTING_RECIPES,
     ENCHANTMENT_TYPES,
     ITEM_TYPES,
@@ -22,9 +30,18 @@ import {
     AUTO_LOOT_RARITIES,
     AUTO_LOOT_ACTIONS,
     SKILL_TREE,
+    PET_MAX_LEVEL,
+    PET_TALENTS,
+    WORLD_BOSSES,
+    WORLD_BOSS_TIERS,
+    WORLD_BOSS_DAILY_ATTEMPTS,
+    WORLD_BOSS_EXTRA_COST_DIAMONDS,
+    WORLD_BOSS_DURATION,
     getTreeEffects,
     getNodeUpgradeCost,
     getNodeTotalInvested,
+    getPetXpRequired,
+    getPetBonusMultiplier,
 } from './constants.js';
 import { defaultState } from './state.js';
 import {
@@ -32,6 +49,8 @@ import {
     calcActiveSetBonuses, startTowerRun, resolveTowerEventChoice, processTowerCombatTick,
     handleTowerMonsterKill, processSiegeCombatTick,
     getTowerModifierIntensity,
+    getDailyWorldBoss, syncWorldBossDailyReset, getWorldBossTierInfo,
+    startWorldBossBattle, processWorldBossCombatTick,
 } from './combat.js';
 import {
     renderCanvas, makeHeroDmgFloat, makeMonsterDmgFloat,
@@ -42,12 +61,15 @@ import {
     getBuildingCost, buyBuilding, processBuildings,
     generateLoot, getUpgradeCost, upgradeItem,
     equipItem, unequipItem, sellItem, dismantleItem,
-    getMarketPrice, buyMarketResource, getDomainFortificationCost,
+    getMarketPrice, buyMarketResource, tradeMarketResources, buyBlackMarketOffer,
+    getTavernRestCost, restAtTavernInn, generateTavernContracts, completeTavernContract,
+    getDomainFortificationCost,
     upgradeDomain, calcGoldIncomeRate, craftItem,
     enchantEquipment, calcMonsterMaterialDrops,
     calcAscensionReward, performAscension, buyAscensionPerk,
     getNextBagUpgrade, upgradeBag, applyAutoLootFilter,
     startPetExpedition, claimPetExpedition, craftRelic,
+    grantPetXp, getPetTrainCost, trainPet, buyPetTalent,
     resolveSiegeVictory, resolveSiegeDefeat,
     getForgeCost, resetHeroStats, getStatResetCost,
 } from './economy.js';
@@ -79,14 +101,22 @@ export function gameData() {
     return {
         // --- Constantes expostas no template ---
         MONSTER_TYPES,
+        ZONE_BIOMES,
+        HERO_TITLES,
+        MONSTER_AFFIXES,
+        EXPLORATION_EVENTS,
+        TAVERN_CONTRACT_TEMPLATES,
         ORACLE_BUFFS,
         MARKET_ITEMS,
+        MARKET_TRADES,
+        BLACK_MARKET_OFFERS,
         TAVERN_RUMORS,
         PETS,
         TAMER_COST,
         BESTIARY_MILESTONES,
         BESTIARY_TITLES,
         QUEST_TYPES,
+        ACHIEVEMENTS,
         CRAFTING_RECIPES,
         ENCHANTMENT_TYPES,
         ITEM_TYPES,
@@ -94,6 +124,13 @@ export function gameData() {
         ITEM_SETS,
         CLASS_SPECIALIZATIONS,
         SKILL_TREE,
+        PET_MAX_LEVEL,
+        PET_TALENTS,
+        WORLD_BOSSES,
+        WORLD_BOSS_TIERS,
+        WORLD_BOSS_DAILY_ATTEMPTS,
+        WORLD_BOSS_EXTRA_COST_DIAMONDS,
+        WORLD_BOSS_DURATION,
         PET_EXPEDITIONS_CONFIG,
         RELIC_RECIPES,
         TOWER_MODIFIERS,
@@ -114,8 +151,13 @@ export function gameData() {
         LANG_META,                         // metadados p/ UI de seleção de idioma
         activeTab: 'city',
         cityPanel: null,
+        marketSubTab: 'gold',              // 'gold' | 'barter' | 'black_market' (GDD Expansão 4.2)
+        tavernSubTab: 'games',             // 'games' | 'inn' | 'contracts' (GDD Expansão 3.3)
+        domainCategory: 'all',             // 'all' | 'gold' | 'resources' | 'support' (GDD Expansão 4.1)
+        questWidgetOpen: true,             // Mini-widget retrátil de missões na Exploração (GDD Expansão 3.2)
         blacksmithTab: 'upgrade',   // 'upgrade' | 'craft' | 'relics'
-        petTab: 'list',      // 'list' | 'expeditions'
+        petTab: 'list',             // 'list' | 'expeditions' | 'talents'
+        towerSubTab: 'abyss',       // 'abyss' | 'world_boss'
         selectedExpeditionZone: 'forest',
         selectedExpeditionPet: null,
         selectedExpeditionMinutes: 30,
@@ -251,6 +293,7 @@ export function gameData() {
             }
 
             ensureQuests(this.state);
+            generateTavernContracts(this.state);
             this.recalcStats();
             this._setupCanvas();
 
@@ -269,7 +312,11 @@ export function gameData() {
                     const now = Date.now();
                     const elapsedMs = now - this.state.lastTickAt;
                     if (elapsedMs > 2000) { // Só faz catch-up se ausente por mais de 2s
-                        const elapsedSec = Math.min(elapsedMs / 1000, 3600); // Cap de 1h
+                        const te = getTreeEffects(this.state);
+                        const offlineBonusSec = (te.offline_cap_bonus || 0) * 30 * 60;
+                        const ascOfflineSec = (this.state.ascension?.perks?.offline_cap || 0) * 2 * 3600;
+                        const maxOfflineSec = 3600 + offlineBonusSec + ascOfflineSec;
+                        const elapsedSec = Math.min(elapsedMs / 1000, maxOfflineSec);
                         this._processOfflineProgress(elapsedSec);
                     }
                     this.state.lastTickAt = now;
@@ -329,14 +376,18 @@ export function gameData() {
             if (!s.buildings || !s.buildings.hut) {
                 s.buildings = JSON.parse(JSON.stringify(defaultState.buildings));
             }
-            // Garante que novas construções existam
+            // Garante que novas construções existam e sincroniza metadados de utilidade e categoria
             for (const key in defaultState.buildings) {
                 if (!s.buildings[key]) s.buildings[key] = { ...defaultState.buildings[key] };
-            }
-            // Atualiza prod/baseCost para valores atuais (rebalancamentos)
-            for (const key in defaultState.buildings) {
+                s.buildings[key].name = defaultState.buildings[key].name;
+                s.buildings[key].icon = defaultState.buildings[key].icon;
                 s.buildings[key].prod = defaultState.buildings[key].prod;
                 s.buildings[key].baseCost = defaultState.buildings[key].baseCost;
+                s.buildings[key].resource = defaultState.buildings[key].resource;
+                s.buildings[key].category = defaultState.buildings[key].category;
+                s.buildings[key].utilityDesc = defaultState.buildings[key].utilityDesc;
+                s.buildings[key].utilityType = defaultState.buildings[key].utilityType;
+                s.buildings[key].utilityVal = defaultState.buildings[key].utilityVal;
             }
 
             // Normalização de Diamante comum (singular)
@@ -358,15 +409,27 @@ export function gameData() {
             if (s.oracleBuff && s.oracleBuff.expiresAt && s.oracleBuff.expiresAt <= Date.now()) {
                 s.oracleBuff = null;
             }
+            if (typeof s.tavernRestBuff === 'undefined') s.tavernRestBuff = null;
+            if (s.tavernRestBuff && s.tavernRestBuff.expiresAt && s.tavernRestBuff.expiresAt <= Date.now()) {
+                s.tavernRestBuff = null;
+            }
+            if (typeof s.explorationEvent === 'undefined') s.explorationEvent = null;
+            if (!s.achievementsClaimed) s.achievementsClaimed = {};
 
             if (!s.marketPurchases) {
                 s.marketPurchases = { wood: 0, scrap: 0, iron: 0, essence: 0 };
             }
             if (!s.ascension) {
-                s.ascension = { count: 0, totalAncestralEarned: 0, perks: { dmg: 0, gold: 0, xp: 0, drop: 0 } };
+                s.ascension = JSON.parse(JSON.stringify(defaultState.ascension));
             }
             if (!s.ascension.perks) {
-                s.ascension.perks = { dmg: 0, gold: 0, xp: 0, drop: 0 };
+                s.ascension.perks = JSON.parse(JSON.stringify(defaultState.ascension.perks));
+            } else {
+                for (const pKey in defaultState.ascension.perks) {
+                    if (typeof s.ascension.perks[pKey] === 'undefined') {
+                        s.ascension.perks[pKey] = 0;
+                    }
+                }
             }
             // GDD Expansão 1.4: Migração de saves antigos
             // Se o save usa o sistema antigo (ascension.diamonds), migrar para ancestralDiamonds
@@ -394,6 +457,28 @@ export function gameData() {
             if (typeof s.inventoryMaxSlots === 'undefined') s.inventoryMaxSlots = 20;
             if (typeof s.hero.specialization === 'undefined') s.hero.specialization = null;
             if (!s.petExpeditions) s.petExpeditions = [];
+            if (!s.pets) {
+                s.pets = { tamerUnlocked: false, owned: [], active: null, levels: {}, xp: {}, talents: {}, talentPoints: 0 };
+            } else {
+                if (!s.pets.levels) s.pets.levels = {};
+                if (!s.pets.xp) s.pets.xp = {};
+                if (!s.pets.talents) s.pets.talents = {};
+                if (typeof s.pets.talentPoints === 'undefined') {
+                    // Concede pontos retroativos baseados no Domador (+1) e mascotes adotados (+1 cada)
+                    const spent = Object.values(s.pets.talents || {}).reduce((a, b) => a + (b || 0), 0);
+                    const earned = (s.pets.tamerUnlocked ? 1 : 0) + (s.pets.owned?.length || 0);
+                    s.pets.talentPoints = Math.max(0, earned - spent);
+                }
+                for (const pId of (s.pets.owned || [])) {
+                    if (!s.pets.levels[pId]) s.pets.levels[pId] = 1;
+                    if (typeof s.pets.xp[pId] === 'undefined') s.pets.xp[pId] = 0;
+                }
+            }
+            // Chefe Mundial Diário (GDD Expansão 1.6)
+            syncWorldBossDailyReset(s);
+            if (s.worldBoss?.inBattle) {
+                s.worldBoss.inBattle = false;
+            }
             if (!s.tower) {
                 s.tower = { floor: 1, maxFloor: 1, inBattle: false, monster: null, modifier: null, logs: [], roomType: 'monster', eventRoom: null, isVictory: false, isDefeat: false };
             } else {
@@ -443,10 +528,18 @@ export function gameData() {
                     enchantmentsDone: 0,
                     timePlayedSec: 0,
                     highestTowerFloor: 1,
+                    criticalHits: 0,
                 };
+            } else if (typeof s.lifetimeStats.criticalHits === 'undefined') {
+                s.lifetimeStats.criticalHits = 0;
             }
             if (!s.statsSession) {
                 s.statsSession = { startedAt: Date.now(), kills: 0, goldEarned: 0, xpEarned: 0, damageDealt: 0 };
+            }
+
+            // Garante contratos de suprimento da taverna
+            if (!Array.isArray(s.tavernContracts) || s.tavernContracts.length === 0) {
+                generateTavernContracts(s, true);
             }
 
             // Garante que se um monstro da zona 1 estiver ativo com HP antigo, ele seja recriado com 5 HP
@@ -684,13 +777,14 @@ export function gameData() {
                 this.state.hero.level++;
                 this.state.hero.xp -= this.state.hero.nextXp;
                 this.state.hero.nextXp = calcXpForLevel(this.state.hero.level);
-                this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 1;
+                // GDD Expansão 1.1: +2 pontos de atributo por nível
+                this.state.hero.statPoints = (this.state.hero.statPoints || 0) + 2;
                 this.state.baseStats.hpMax += 10;
 
                 // Bônus de marco a cada 10 níveis (+2 pontos de atributo bônus)
                 if (this.state.hero.level % 10 === 0) {
-                    this.state.hero.statPoints += 1;
-                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +1 Ponto de Atributo Bônus!`, 'prestige');
+                    this.state.hero.statPoints += 2;
+                    this.addLog(`🌟 MARCO! Nível ${this.state.hero.level} — +2 Pontos de Atributo Bônus!`, 'prestige');
                 }
 
                 this.recalcStats();
@@ -701,7 +795,7 @@ export function gameData() {
 
                 if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
 
-                this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+1 Ponto de Atributo) ✨`, 'level');
+                this.addLog(`LEVEL UP! Nível ${this.state.hero.level} (+2 Pontos de Atributo) ✨`, 'level');
                 this.showNotification(`LEVEL UP! Você alcançou o Nível ${this.state.hero.level}!`);
 
                 // Nível 10+: ganha +1 Ponto de Árvore por nível
@@ -770,11 +864,13 @@ export function gameData() {
         useFocusedAttack() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
             const te = getTreeEffects(this.state);
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const silenceMult = isSilenced ? 2 : 1;
 
             // Determina custo e recurso (Mago usa Mana, outros usam Energia com desconto da árvore)
             const isArcane = !!te.mag_focus_boost;
-            const energyCost = Math.max(15, 30 - (te.brs_focus_boost ? te.brs_focus_boost * 3 : (te.thf_focus_boost ? te.thf_focus_boost * 4 : 0)));
-            const manaCost = 30;
+            const energyCost = Math.max(15, 30 - (te.brs_focus_boost ? te.brs_focus_boost * 3 : (te.thf_focus_boost ? te.thf_focus_boost * 4 : 0))) * silenceMult;
+            const manaCost = 30 * silenceMult;
 
             if (isArcane) {
                 if ((this.state.hero.mana || 0) < manaCost) {
@@ -814,15 +910,34 @@ export function gameData() {
             }
             if (te.thf_focus_boost) mult = (3 + te.thf_focus_boost * 0.8) * 1.5; // crítico letal
 
+            // Rastreia acerto crítico da habilidade
+            trackQuestProgress(this.state, 'CRITICAL_HITS', 1);
+            if (this.state.lifetimeStats) {
+                this.state.lifetimeStats.criticalHits = (this.state.lifetimeStats.criticalHits || 0) + 1;
+            }
+
             // Paladino: Baluarte soma defesa ao ataque
             let bonusDefDmg = 0;
             if (te.paladin_bastion) bonusDefDmg = Math.floor(this.state.derived.def * te.paladin_bastion * 0.40);
+
+            // Corvo Arcano: +15% Dano de Habilidades Ativas (escalado pela Afinidade/Instinto Alfa)
+            const crowMult = 1 + 0.15 * getPetBonusMultiplier(this.state, 'corvo_arcano');
+
+            // Chefe Mundial Diário em combate
+            if (this.state.worldBoss?.inBattle) {
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * crowMult * (0.9 + Math.random() * 0.2));
+                this.state.worldBoss.damageDealt = (this.state.worldBoss.damageDealt || 0) + dmg;
+                const name = isArcane ? 'Transmutação Arcana' : 'Ataque Concentrado';
+                this.state.worldBoss.logs.unshift(`⚡ ${name} causou ${dmg.toLocaleString('pt-BR')} de dano ao Chefe Mundial!`);
+                if (this.state.worldBoss.logs.length > 35) this.state.worldBoss.logs.pop();
+                return;
+            }
 
             // Torre em combate
             if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
                 const tm = this.state.tower.monster;
                 const towerMult = (this.state.tower.heroDmgMult || 1.0);
-                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * towerMult * (0.9 + Math.random() * 0.2));
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * crowMult * towerMult * (0.9 + Math.random() * 0.2));
                 tm.hp -= dmg;
                 tm.isHit = true;
                 tm.hitTimer = 0.5;
@@ -841,7 +956,7 @@ export function gameData() {
             // Cerco da Vila
             if (this.state.villageSiege?.active && this.state.villageSiege?.inBattle && this.state.villageSiege.monster) {
                 const sm = this.state.villageSiege.monster;
-                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * (0.9 + Math.random() * 0.2));
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * crowMult * (0.9 + Math.random() * 0.2));
                 sm.hp -= dmg;
                 sm.isHit = true;
                 sm.hitTimer = 0.5;
@@ -863,7 +978,7 @@ export function gameData() {
 
             // Exploração regular
             if (this.state.isExploring && this.state.monster) {
-                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * (0.9 + Math.random() * 0.2));
+                const dmg = Math.floor((baseStat * mult + bonusDefDmg) * crowMult * (0.9 + Math.random() * 0.2));
                 this.state.monster.hp -= dmg;
                 this.state.monster.isHit = true;
                 this.state.monster.hitTimer = 0.5;
@@ -887,7 +1002,9 @@ export function gameData() {
         useQuickHeal() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
             const te = getTreeEffects(this.state);
-            const manaCost = Math.max(15, 30 - (te.pal_heal_boost ? te.pal_heal_boost * 3 : 0));
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const silenceMult = isSilenced ? 2 : 1;
+            const manaCost = Math.max(15, 30 - (te.pal_heal_boost ? te.pal_heal_boost * 3 : 0)) * silenceMult;
 
             if ((this.state.hero.mana || 0) < manaCost) {
                 this.addLog(`Mana insuficiente para Cura Espontânea! (${manaCost} 🧪)`, 'danger');
@@ -924,12 +1041,130 @@ export function gameData() {
             if (this.state.tower?.inBattle) {
                 this.state.tower.logs.unshift(`🧪 Cura Espontânea restaurou +${healAmt} HP!`);
             }
+            if (this.state.worldBoss?.inBattle) {
+                this.state.worldBoss.logs.unshift(`🧪 Cura Espontânea restaurou +${healAmt} HP!`);
+            }
             this.addLog(`🧪 Cura Espontânea restaurou +${healAmt} HP!`, 'level');
         },
 
         // ==========================================
-        // EXPLORAÇÃO & COMBATE
+        // EXPLORAÇÃO, BIOMAS, TÍTULOS & EVENTOS
         // ==========================================
+
+        getCurrentBiome() {
+            const z = this.state?.zone || 1;
+            return ZONE_BIOMES.find(b => z >= b.minZone && z <= b.maxZone) || ZONE_BIOMES[0];
+        },
+
+        getHeroTitle() {
+            const lvl = this.state?.hero?.level || 1;
+            let current = HERO_TITLES[0];
+            for (const t of HERO_TITLES) {
+                if (lvl >= t.minLevel) current = t;
+            }
+            return current;
+        },
+
+        getActivePetDef() {
+            const activeId = this.state?.pets?.active;
+            if (!activeId) return null;
+            return PETS.find(p => p.id === activeId) || null;
+        },
+
+        resolveExplorationEvent(choiceIdx) {
+            const ev = this.state.explorationEvent;
+            if (!ev || !ev.choices || !ev.choices[choiceIdx]) return;
+            const choice = ev.choices[choiceIdx];
+            const z = Math.max(1, this.state.zone || 1);
+            const lvl = Math.max(1, this.state.hero?.level || 1);
+
+            if (choice.action === 'open_chest') {
+                if (Math.random() < 0.72) {
+                    const goldGain = Math.floor(80 * z * (0.9 + Math.random() * 0.4));
+                    const matTypes = ['wood', 'iron', 'scrap', 'essence'];
+                    const matKey = matTypes[Math.floor(Math.random() * matTypes.length)];
+                    const matQty = Math.max(2, Math.floor(2 + z * 0.6));
+                    this.state.resources.gold = (this.state.resources.gold || 0) + goldGain;
+                    this.state.resources[matKey] = (this.state.resources[matKey] || 0) + matQty;
+                    trackQuestProgress(this.state, 'EARN_GOLD', goldGain);
+                    const msg = `📦 Baú Ancestral aberto! Ganhou +${goldGain} Ouro e +${matQty} ${matKey.toUpperCase()}!`;
+                    this.addLog(msg, 'loot');
+                    this.showNotification(msg);
+                    if (this.state.audioEnabled) playItemDrop(this.state.audioVolume);
+                } else {
+                    const trapDmg = Math.max(1, Math.floor((this.state.derived?.hpMax || 100) * 0.15));
+                    const scrapGain = Math.max(3, Math.floor(3 + z * 0.5));
+                    this.state.hero.hp = Math.max(1, (this.state.hero.hp || 10) - trapDmg);
+                    this.state.resources.scrap = (this.state.resources.scrap || 0) + scrapDmgSafe(scrapGain);
+                    const msg = `💥 O baú tinha uma armadilha! Perdeu ${trapDmg} HP, mas desmontou a trava (+${scrapGain} Sucata).`;
+                    this.addLog(msg, 'danger');
+                    this.showNotification(msg);
+                }
+            } else if (choice.action === 'leave_chest') {
+                const xpGain = Math.floor(25 * z);
+                this.state.hero.xp = (this.state.hero.xp || 0) + xpGain;
+                this._checkLevelUp();
+                const msg = `🧭 Você seguiu com cautela e estudou o terreno (+${xpGain} XP).`;
+                this.addLog(msg, 'narrative');
+                this.showNotification(msg);
+            } else if (choice.action === 'pray_dmg') {
+                this.state.hero.energy = this.state.derived?.energyMax || 100;
+                this.state.hero.mana = this.state.derived?.manaMax || 100;
+                const xpGain = Math.floor(40 * z);
+                this.state.hero.xp = (this.state.hero.xp || 0) + xpGain;
+                this._checkLevelUp();
+                const msg = `⛩️ As runas energizaram seu espírito! Energia/Mana em 100% e +${xpGain} XP!`;
+                this.addLog(msg, 'prestige');
+                this.showNotification(msg);
+            } else if (choice.action === 'pray_heal') {
+                this.state.hero.hp = this.state.derived?.hpMax || 100;
+                this.state.hero.energy = this.state.derived?.energyMax || 100;
+                this.state.hero.mana = this.state.derived?.manaMax || 100;
+                const msg = `✨ A luz rúnica restaurou 100% do seu HP, Energia e Mana!`;
+                this.addLog(msg, 'level');
+                this.showNotification(msg);
+            } else if (choice.action === 'buy_mystery') {
+                const cost = Math.floor(45 * lvl);
+                if ((this.state.resources.gold || 0) < cost) {
+                    this.showNotification(`Ouro insuficiente para o Mercador Nômade (${cost} 🪙)!`);
+                    return;
+                }
+                this.state.resources.gold -= cost;
+                trackQuestProgress(this.state, 'SPEND_GOLD', cost);
+                const essGain = Math.max(2, Math.floor(2 + z * 0.5));
+                const diaChance = Math.random() < 0.35 ? 2 : 0;
+                this.state.resources.essence = (this.state.resources.essence || 0) + essGain;
+                if (diaChance > 0) this.state.resources.diamond = (this.state.resources.diamond || 0) + diaChance;
+                const msg = `🐪 Sacola Misteriosa aberta: +${essGain} Essências ⚡${diaChance > 0 ? ` e +${diaChance} Diamantes 💎!` : '!'}`;
+                this.addLog(msg, 'loot');
+                this.showNotification(msg);
+            } else if (choice.action === 'skip_merchant') {
+                const goldTip = Math.floor(15 * z);
+                this.state.resources.gold = (this.state.resources.gold || 0) + goldTip;
+                const msg = `🐪 O mercador agradeceu a conversa e deixou +${goldTip} Ouro de lembrança.`;
+                this.addLog(msg, 'narrative');
+                this.showNotification(msg);
+            } else if (choice.action === 'drink_spring') {
+                this.state.hero.hp = this.state.derived?.hpMax || 100;
+                this.state.hero.energy = this.state.derived?.energyMax || 100;
+                this.state.hero.mana = this.state.derived?.manaMax || 100;
+                const xpGain = Math.floor(35 * z);
+                this.state.hero.xp = (this.state.hero.xp || 0) + xpGain;
+                this._checkLevelUp();
+                const msg = `⛲ Você bebeu da Nascente Cristalina! HP/Energia/Mana restaurados + ${xpGain} XP!`;
+                this.addLog(msg, 'level');
+                this.showNotification(msg);
+            }
+
+            this.state.explorationEvent = null;
+            this.saveGame();
+
+            function scrapDmgSafe(v) { return Math.max(1, v || 1); }
+        },
+
+        dismissExplorationEvent() {
+            this.state.explorationEvent = null;
+        },
 
         toggleExploration() {
             // Se o herói estiver morto / se recuperando:
@@ -1023,7 +1258,7 @@ export function gameData() {
                 this.state.statsSession = { startedAt: Date.now(), kills: 0, goldEarned: 0, xpEarned: 0, damageDealt: 0 };
             }
             if (!this.state.lifetimeStats) {
-                this.state.lifetimeStats = { kills: 0, bosses: 0, goldEarned: 0, itemsCrafted: 0, itemsUpgraded: 0, enchantmentsDone: 0, timePlayedSec: 0, highestTowerFloor: 1 };
+                this.state.lifetimeStats = { kills: 0, bosses: 0, goldEarned: 0, itemsCrafted: 0, itemsUpgraded: 0, enchantmentsDone: 0, timePlayedSec: 0, highestTowerFloor: 1, criticalHits: 0 };
             }
             this.state.statsSession.kills++;
             this.state.statsSession.goldEarned += gold;
@@ -1091,6 +1326,17 @@ export function gameData() {
             // Level Up — delega para método reutilizável
             this._checkLevelUp();
 
+            // XP de Afinidade para o Mascote Ativo
+            if (this.state.pets?.active) {
+                const petRes = grantPetXp(this.state, this.state.pets.active, m.isBoss ? 45 : 15);
+                if (petRes?.leveledUp) {
+                    const petDef = PETS.find(p => p.id === this.state.pets.active);
+                    this.recalcStats();
+                    this.addLog(`🐾 Afinidade de ${petDef?.name || 'Mascote'} subiu para Nível ${petRes.level}! (+1 Ponto de Talento Bestial)`, 'prestige');
+                    this.showNotification(`🐾 ${petDef?.name} alcançou Afinidade Nv. ${petRes.level}!`);
+                }
+            }
+
             // Avanço de zona (boss)
             if (m.isBoss) {
                 this.state.zone++;
@@ -1100,8 +1346,25 @@ export function gameData() {
                 this.showNotification(`Zona ${this.state.zone} desbloqueada!`);
             }
 
+            // Evento Interativo de Exploração (12% de chance ao derrotar monstro quando não há evento pendente)
+            if (!this.state.explorationEvent && Math.random() < 0.12 && EXPLORATION_EVENTS.length > 0) {
+                const ev = EXPLORATION_EVENTS[Math.floor(Math.random() * EXPLORATION_EVENTS.length)];
+                this.state.explorationEvent = {
+                    ...JSON.parse(JSON.stringify(ev)),
+                    triggeredAt: Date.now(),
+                };
+                this.addLog(`🗺️ Evento de Exploração encontrado: ${ev.title}!`, 'prestige');
+            }
+
             // Spawn próximo monstro
             this.state.monster = createMonster(this.state.zone, this.state.killsInZone, this.state.bossSafeMode);
+
+            // Perk de Ascensão: Caçador Veloz (fast_hunter) pré-carrega o timer de ataque a cada novo monstro
+            const fastHunterLvl = this.state.ascension?.perks?.fast_hunter || 0;
+            if (fastHunterLvl > 0) {
+                const atkInterval = 1 / Math.max(0.5, this.state.derived?.atkSpeed || 1);
+                this.state.hero.atkTimer = Math.min(atkInterval * 0.75, (this.state.hero.atkTimer || 0) + atkInterval * fastHunterLvl * 0.12);
+            }
         },
 
         // ==========================================
@@ -1132,12 +1395,13 @@ export function gameData() {
             }
             this.state.resources.gold -= TAMER_COST;
             if (!this.state.pets) {
-                this.state.pets = { tamerUnlocked: true, owned: [], active: null };
+                this.state.pets = { tamerUnlocked: true, owned: [], active: null, levels: {}, xp: {}, talents: {}, talentPoints: 1 };
             } else {
                 this.state.pets.tamerUnlocked = true;
+                this.state.pets.talentPoints = (this.state.pets.talentPoints || 0) + 1;
             }
             trackQuestProgress(this.state, 'SPEND_GOLD', TAMER_COST);
-            this.addLog('🐾 Você contratou o Domador de Feras! A aba de Companheiros foi desbloqueada.', 'level');
+            this.addLog('🐾 Você contratou o Domador de Feras! A aba de Companheiros foi desbloqueada (+1 Ponto de Talento Bestial).', 'level');
             this.showNotification('Domador Contratado com sucesso!');
             this.saveGame();
         },
@@ -1152,12 +1416,17 @@ export function gameData() {
             this.state.resources.gold -= pet.cost;
             if (!this.state.pets.owned) this.state.pets.owned = [];
             this.state.pets.owned.push(petId);
+            if (!this.state.pets.levels) this.state.pets.levels = {};
+            if (!this.state.pets.xp) this.state.pets.xp = {};
+            this.state.pets.levels[petId] = 1;
+            this.state.pets.xp[petId] = 0;
+            this.state.pets.talentPoints = (this.state.pets.talentPoints || 0) + 1;
             if (!this.state.pets.active) {
                 this.state.pets.active = petId;
             }
             trackQuestProgress(this.state, 'SPEND_GOLD', pet.cost);
             this.recalcStats();
-            this.addLog(`🐾 Você adotou ${pet.name}! (${pet.effectDesc})`, 'loot');
+            this.addLog(`🐾 Você adotou ${pet.name}! (${pet.effectDesc}) [+1 Ponto de Talento Bestial]`, 'loot');
             this.showNotification(`${pet.name} agora é seu companheiro!`);
             this.saveGame();
         },
@@ -1167,7 +1436,7 @@ export function gameData() {
             this.state.pets.active = petId;
             this.recalcStats();
             const pet = PETS.find(p => p.id === petId);
-            this.showNotification(`Companheiro ativo: ${pet?.name || 'Pet'}`);
+            this.showNotification(`Companheiro ativo: ${pet?.name || 'Pet'} (Sinergia 1.5x Ativa!)`);
             this.saveGame();
         },
 
@@ -1179,9 +1448,77 @@ export function gameData() {
             this.saveGame();
         },
 
+        getPetLevel(petId) {
+            return this.state.pets?.levels?.[petId] || 1;
+        },
+
+        getPetXp(petId) {
+            return this.state.pets?.xp?.[petId] || 0;
+        },
+
+        getPetNextXp(petId) {
+            return getPetXpRequired(this.getPetLevel(petId));
+        },
+
+        getPetBonusText(pet) {
+            if (!pet) return '';
+            const owned = this.state.pets?.owned?.includes(pet.id);
+            if (!owned) return pet.effectDesc;
+            const mult = getPetBonusMultiplier(this.state, pet.id);
+            const map = {
+                coruja: `+${Math.round(15 * mult)}% de XP ganho`,
+                pantera: `+${(5 * mult).toFixed(1)}% de Chance Crítica`,
+                rato_ladrao: `+${Math.round(20 * mult)}% de Ouro saqueado`,
+                raposa: `+${Math.round(10 * mult)} de Agilidade (AGI)`,
+                corvo_arcano: `+${Math.round(15 * mult)}% Dano de Habilidades Ativas`,
+                lobo_alfa: `+${Math.round(15 * mult)}% de Força Total (STR)`,
+                salamandra: `+${Math.round(20 * mult)}% de Inteligência Total (INT)`,
+                golem_mini: `+${Math.round(25 * mult)}% de Defesa Total (DEF)`,
+            };
+            return map[pet.id] || pet.effectDesc;
+        },
+
+        getPetTrainCost(petId) {
+            return getPetTrainCost(this.state, petId);
+        },
+
+        trainPetById(petId) {
+            const res = trainPet(this.state, petId);
+            if (res.ok) {
+                this.recalcStats();
+                this.addLog(res.msg, res.leveledUp ? 'prestige' : 'loot');
+                this.showNotification(res.msg);
+                this.saveGame();
+            } else {
+                this.showNotification(res.msg);
+            }
+        },
+
+        getPetTalentLevel(talentId) {
+            return this.state.pets?.talents?.[talentId] || 0;
+        },
+
+        upgradePetTalent(talentId) {
+            const res = buyPetTalent(this.state, talentId);
+            if (res.ok) {
+                this.recalcStats();
+                this.addLog(res.msg, 'prestige');
+                this.showNotification(res.msg);
+                this.saveGame();
+            } else {
+                this.showNotification(res.msg);
+            }
+        },
+
         // ==========================================
         // DOMÍNIO & FORTIFICAÇÃO
         // ==========================================
+
+        getFilteredBuildings() {
+            const entries = Object.entries(this.state.buildings || {});
+            if (!this.domainCategory || this.domainCategory === 'all') return entries;
+            return entries.filter(([, b]) => b.category === this.domainCategory);
+        },
 
         getBuildingCost(id) {
             return getBuildingCost(this.state.buildings, id);
@@ -1190,7 +1527,9 @@ export function gameData() {
         buyBuilding(id) {
             const ok = buyBuilding(this.state, id);
             if (ok) {
+                this.recalcStats();
                 this.showNotification(`Construiu ${this.state.buildings[id].name}!`);
+                this.saveGame();
             } else {
                 this.addLog('Ouro insuficiente para construir.', 'danger');
             }
@@ -1299,8 +1638,64 @@ export function gameData() {
         },
 
         // ==========================================
-        // TAVERNA
+        // TAVERNA (JOGOS, ESTALAGEM & CONTRATOS — GDD Expansão 3.3)
         // ==========================================
+
+        getTavernInnCost() {
+            return getTavernRestCost(this.state);
+        },
+
+        getTavernRestRemainingFormatted() {
+            if (!this.state.tavernRestBuff || !this.state.tavernRestBuff.remaining) return '';
+            const mins = Math.floor(this.state.tavernRestBuff.remaining / 60);
+            const secs = Math.floor(this.state.tavernRestBuff.remaining % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        },
+
+        restInTavern() {
+            const res = restAtTavernInn(this.state);
+            if (!res.ok) {
+                this.showNotification(res.msg);
+                this.addLog(res.msg, 'danger');
+                return;
+            }
+            this.recalcStats();
+            this.addLog(res.msg, 'level');
+            this.showNotification(res.msg);
+            if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+            this.saveGame();
+        },
+
+        deliverTavernContract(contractIndex) {
+            const res = completeTavernContract(this.state, contractIndex);
+            if (!res.ok) {
+                this.showNotification(res.msg);
+                this.addLog(res.msg, 'danger');
+                return;
+            }
+            this._checkLevelUp();
+            this.recalcStats();
+            this.addLog(res.msg, 'loot');
+            this.showNotification(res.msg);
+            if (this.state.audioEnabled) playCoinClink(this.state.audioVolume);
+            this.saveGame();
+        },
+
+        refreshTavernContracts() {
+            const allDone = (this.state.tavernContracts || []).every(c => c.completed);
+            const cost = allDone ? 0 : Math.max(25, Math.floor(25 * (this.state.hero?.level || 1)));
+            if (cost > 0 && (this.state.resources.gold || 0) < cost) {
+                this.showNotification(`Necessário ${cost} Ouro 🪙 para solicitar novos contratos!`);
+                return;
+            }
+            if (cost > 0) {
+                this.state.resources.gold -= cost;
+                trackQuestProgress(this.state, 'SPEND_GOLD', cost);
+            }
+            generateTavernContracts(this.state, true);
+            this.showNotification('📜 Novos Contratos de Suprimento afixados no mural!');
+            this.saveGame();
+        },
 
         playTavernGame(game, bet) {
             if (this.tavernAnim.active) return; // Bloqueia se já está animando
@@ -1444,7 +1839,7 @@ export function gameData() {
         },
 
         // ==========================================
-        // MERCADO DINÂMICO (GDD: Seção 15)
+        // MERCADO DINÂMICO, ESCAMBO & MERCADO NEGRO (GDD: Seção 15 & Expansão 4.2)
         // ==========================================
 
         getMarketPrice(item) {
@@ -1461,6 +1856,103 @@ export function gameData() {
                 this.addLog(result.msg, 'danger');
                 this.showNotification(result.msg);
             }
+        },
+
+        tradeMarketItem(tradeId) {
+            const result = tradeMarketResources(this.state, tradeId);
+            if (result.ok) {
+                this.addLog(result.msg, 'loot');
+                this.showNotification(result.msg);
+                this.saveGame();
+            } else {
+                this.addLog(result.msg, 'danger');
+                this.showNotification(result.msg);
+            }
+        },
+
+        buyBlackMarketItem(offerId) {
+            const result = buyBlackMarketOffer(this.state, offerId);
+            if (result.ok) {
+                this._checkLevelUp();
+                this.recalcStats();
+                this.addLog(result.msg, 'prestige');
+                this.showNotification(result.msg);
+                if (this.state.audioEnabled) playItemDrop(this.state.audioVolume);
+                this.saveGame();
+            } else {
+                this.addLog(result.msg, 'danger');
+                this.showNotification(result.msg);
+            }
+        },
+
+        // ==========================================
+        // CONQUISTAS DE IDLETON (GDD: Seção 21)
+        // ==========================================
+
+        getAchievementProgress(ach) {
+            if (!ach) return 0;
+            const ls = this.state.lifetimeStats || {};
+            switch (ach.stat) {
+                case 'kills': return Math.max(this.state.totalKills || 0, ls.kills || 0);
+                case 'bosses': return ls.bosses || 0;
+                case 'goldEarned': return ls.goldEarned || 0;
+                case 'highestTowerFloor': return Math.max(this.state.tower?.maxFloor || 1, ls.highestTowerFloor || 1);
+                case 'itemsCrafted': return Math.max(this.state.forgeCount || 0, ls.itemsCrafted || 0);
+                case 'petsOwned': return (this.state.pets?.owned || []).length;
+                case 'ascensions': return this.state.ascension?.count || 0;
+                case 'level': return this.state.hero?.level || 1;
+                case 'maxZone': return this.state.maxZone || 1;
+                default: return 0;
+            }
+        },
+
+        isAchievementUnlocked(ach) {
+            if (!ach) return false;
+            return this.getAchievementProgress(ach) >= ach.target;
+        },
+
+        isAchievementClaimed(achId) {
+            return !!this.state.achievementsClaimed?.[achId];
+        },
+
+        claimAchievement(achId) {
+            const ach = ACHIEVEMENTS.find(a => a.id === achId);
+            if (!ach) return;
+            if (this.isAchievementClaimed(achId)) {
+                this.showNotification('Conquista já resgatada!');
+                return;
+            }
+            if (!this.isAchievementUnlocked(ach)) {
+                this.showNotification('Conquista ainda não alcançada!');
+                return;
+            }
+            if (!this.state.achievementsClaimed) this.state.achievementsClaimed = {};
+            this.state.achievementsClaimed[achId] = true;
+
+            if (ach.rewardDiamonds > 0) {
+                this.state.resources.diamond = (this.state.resources.diamond || 0) + ach.rewardDiamonds;
+            }
+            if (ach.rewardGold > 0) {
+                this.state.resources.gold = (this.state.resources.gold || 0) + ach.rewardGold;
+                trackQuestProgress(this.state, 'EARN_GOLD', ach.rewardGold);
+            }
+
+            const msg = `🏆 Conquista "${ach.name}" resgatada! +${ach.rewardDiamonds} 💎 e +${ach.rewardGold} 🪙!`;
+            this.addLog(msg, 'prestige');
+            this.showNotification(msg);
+            if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+            this.saveGame();
+        },
+
+        getUnclaimedAchievementsCount() {
+            if (!ACHIEVEMENTS) return 0;
+            let count = 0;
+            for (const ach of ACHIEVEMENTS) {
+                if (this.isAchievementUnlocked(ach) && !this.isAchievementClaimed(ach.id)) {
+                    count++;
+                }
+            }
+            return count;
         },
 
         // ==========================================
@@ -1810,9 +2302,12 @@ export function gameData() {
         getClassActiveSkillInfo() {
             const spec = this.state.hero?.specialization;
             if (!spec) return { unlocked: false };
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const silenceMult = isSilenced ? 2 : 1;
 
             if (spec === 'berserker') {
                 const lvl = this.state.treeSkills?.brs_act || 0;
+                const costVal = 50 * silenceMult;
                 return {
                     unlocked: lvl >= 1,
                     id: 'brs_act',
@@ -1821,15 +2316,16 @@ export function gameData() {
                     color: '#ef4444',
                     bgClass: 'bg-red-950/70 hover:bg-red-900/80 border-red-800/60 hover:border-red-600 text-red-300',
                     desc: `${4 + lvl}× Dano · -50% Def`,
-                    costText: '50 ⚡',
+                    costText: `${costVal} ⚡`,
                     costType: 'energy',
-                    costVal: 50,
+                    costVal,
                     cooldownTimer: this.devastatingStrikeTimer || 0,
                     maxCooldown: 14,
                 };
             }
             if (spec === 'paladin') {
                 const lvl = this.state.treeSkills?.pal_act || 0;
+                const costVal = 40 * silenceMult;
                 return {
                     unlocked: lvl >= 1,
                     id: 'pal_act',
@@ -1838,15 +2334,16 @@ export function gameData() {
                     color: '#facc15',
                     bgClass: 'bg-amber-950/70 hover:bg-amber-900/80 border-amber-800/60 hover:border-amber-600 text-amber-300',
                     desc: `Imune por ${4 + lvl}s`,
-                    costText: '40 🧪',
+                    costText: `${costVal} 🧪`,
                     costType: 'mana',
-                    costVal: 40,
+                    costVal,
                     cooldownTimer: this.divineShieldTimer || 0,
                     maxCooldown: 25,
                 };
             }
             if (spec === 'arcane_mage') {
                 const lvl = this.state.treeSkills?.mag_act || 0;
+                const costVal = 80 * silenceMult;
                 return {
                     unlocked: lvl >= 1,
                     id: 'mag_act',
@@ -1855,15 +2352,16 @@ export function gameData() {
                     color: '#a855f7',
                     bgClass: 'bg-purple-950/70 hover:bg-purple-900/80 border-purple-800/60 hover:border-purple-600 text-purple-300',
                     desc: `${6 + lvl * 2}× INT Dano Verdadeiro`,
-                    costText: '80 🧪',
+                    costText: `${costVal} 🧪`,
                     costType: 'mana',
-                    costVal: 80,
+                    costVal,
                     cooldownTimer: this.arcaneMeteorTimer || 0,
                     maxCooldown: 18,
                 };
             }
             if (spec === 'shadow_thief') {
                 const lvl = this.state.treeSkills?.thf_act || 0;
+                const costVal = 35 * silenceMult;
                 return {
                     unlocked: lvl >= 1,
                     id: 'thf_act',
@@ -1872,9 +2370,9 @@ export function gameData() {
                     color: '#10b981',
                     bgClass: 'bg-emerald-950/70 hover:bg-emerald-900/80 border-emerald-800/60 hover:border-emerald-600 text-emerald-300',
                     desc: `${4 + lvl}× Dano Crítico + Veneno`,
-                    costText: '35 ⚡',
+                    costText: `${costVal} ⚡`,
                     costType: 'energy',
-                    costVal: 35,
+                    costVal,
                     cooldownTimer: this.ambushTimer || 0,
                     maxCooldown: 12,
                 };
@@ -1895,12 +2393,28 @@ export function gameData() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
             const lvl = this.state.treeSkills?.brs_act || 0;
             if (lvl < 1) { this.showNotification('Desbloqueie Golpe Devastador na Árvore!'); return; }
-            if ((this.state.hero.energy || 0) < 50) {
-                this.addLog('Energia insuficiente para Golpe Devastador! (50 ⚡)', 'danger');
-                this.showNotification('Energia insuficiente (50 ⚡)!');
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const cost = 50 * (isSilenced ? 2 : 1);
+            if ((this.state.hero.energy || 0) < cost) {
+                this.addLog(`Energia insuficiente para Golpe Devastador! (${cost} ⚡)`, 'danger');
+                this.showNotification(`Energia insuficiente (${cost} ⚡)!`);
                 return;
             }
             if (this.devastatingStrikeTimer > 0) return;
+
+            const crowMult = 1 + 0.15 * getPetBonusMultiplier(this.state, 'corvo_arcano');
+
+            if (this.state.worldBoss?.inBattle) {
+                this.state.hero.energy -= cost;
+                this.devastatingStrikeTimer = 14;
+                this.state.hero.debuffDefenseTimer = 10;
+                this.recalcStats();
+                const dmg = Math.floor(this.state.derived.str * (4 + lvl) * crowMult * (0.9 + Math.random() * 0.2));
+                this.state.worldBoss.damageDealt = (this.state.worldBoss.damageDealt || 0) + dmg;
+                this.state.worldBoss.logs.unshift(`💥 Golpe Devastador causou ${dmg.toLocaleString('pt-BR')} de dano ao Chefe Mundial!`);
+                if (this.state.worldBoss.logs.length > 35) this.state.worldBoss.logs.pop();
+                return;
+            }
 
             const target = this.state.tower?.inBattle && this.state.tower.monster
                 ? this.state.tower.monster
@@ -1913,12 +2427,12 @@ export function gameData() {
                 return;
             }
 
-            this.state.hero.energy -= 50;
+            this.state.hero.energy -= cost;
             this.devastatingStrikeTimer = 14;
             this.state.hero.debuffDefenseTimer = 10;
             this.recalcStats();
 
-            const dmg = Math.floor(this.state.derived.str * (4 + lvl) * (0.9 + Math.random() * 0.2));
+            const dmg = Math.floor(this.state.derived.str * (4 + lvl) * crowMult * (0.9 + Math.random() * 0.2));
             target.hp -= dmg;
             target.isHit = true;
             target.hitTimer = 0.5;
@@ -1952,14 +2466,16 @@ export function gameData() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
             const lvl = this.state.treeSkills?.pal_act || 0;
             if (lvl < 1) { this.showNotification('Desbloqueie Escudo Divino na Árvore!'); return; }
-            if ((this.state.hero.mana || 0) < 40) {
-                this.addLog('Mana insuficiente para Escudo Divino! (40 🧪)', 'danger');
-                this.showNotification('Mana insuficiente (40 🧪)!');
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const cost = 40 * (isSilenced ? 2 : 1);
+            if ((this.state.hero.mana || 0) < cost) {
+                this.addLog(`Mana insuficiente para Escudo Divino! (${cost} 🧪)`, 'danger');
+                this.showNotification(`Mana insuficiente (${cost} 🧪)!`);
                 return;
             }
             if (this.divineShieldTimer > 0) return;
 
-            this.state.hero.mana -= 40;
+            this.state.hero.mana -= cost;
             this.divineShieldTimer = 25;
             const duration = 4 + lvl;
             this.state.hero.divineShieldTimer = duration;
@@ -1969,6 +2485,9 @@ export function gameData() {
                 if (f) this.pushCombatFloat(f);
             }
 
+            if (this.state.worldBoss?.inBattle) {
+                this.state.worldBoss.logs.unshift(`🛡️ Escudo Divino ativado! Imune a dano por ${duration}s!`);
+            }
             this.addLog(`🛡️ Escudo Divino ativado! Você está 100% IMUNE a todo dano por ${duration}s!`, 'level');
             this.showNotification(`Escudo Divino ativado por ${duration}s!`);
         },
@@ -1978,12 +2497,26 @@ export function gameData() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
             const lvl = this.state.treeSkills?.mag_act || 0;
             if (lvl < 1) { this.showNotification('Desbloqueie Meteoro Arcano na Árvore!'); return; }
-            if ((this.state.hero.mana || 0) < 80) {
-                this.addLog('Mana insuficiente para Meteoro Arcano! (80 🧪)', 'danger');
-                this.showNotification('Mana insuficiente (80 🧪)!');
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const cost = 80 * (isSilenced ? 2 : 1);
+            if ((this.state.hero.mana || 0) < cost) {
+                this.addLog(`Mana insuficiente para Meteoro Arcano! (${cost} 🧪)`, 'danger');
+                this.showNotification(`Mana insuficiente (${cost} 🧪)!`);
                 return;
             }
             if (this.arcaneMeteorTimer > 0) return;
+
+            const crowMult = 1 + 0.15 * getPetBonusMultiplier(this.state, 'corvo_arcano');
+
+            if (this.state.worldBoss?.inBattle) {
+                this.state.hero.mana -= cost;
+                this.arcaneMeteorTimer = 18;
+                const dmg = Math.floor(this.state.derived.int * (6 + lvl * 2) * crowMult * (0.9 + Math.random() * 0.2));
+                this.state.worldBoss.damageDealt = (this.state.worldBoss.damageDealt || 0) + dmg;
+                this.state.worldBoss.logs.unshift(`☄️ Meteoro Arcano incinerou o Chefe Mundial com ${dmg.toLocaleString('pt-BR')} de dano!`);
+                if (this.state.worldBoss.logs.length > 35) this.state.worldBoss.logs.pop();
+                return;
+            }
 
             const target = this.state.tower?.inBattle && this.state.tower.monster
                 ? this.state.tower.monster
@@ -1996,10 +2529,10 @@ export function gameData() {
                 return;
             }
 
-            this.state.hero.mana -= 80;
+            this.state.hero.mana -= cost;
             this.arcaneMeteorTimer = 18;
 
-            const dmg = Math.floor(this.state.derived.int * (6 + lvl * 2) * (0.9 + Math.random() * 0.2));
+            const dmg = Math.floor(this.state.derived.int * (6 + lvl * 2) * crowMult * (0.9 + Math.random() * 0.2));
             target.hp -= dmg;
             target.isHit = true;
             target.hitTimer = 0.5;
@@ -2033,12 +2566,27 @@ export function gameData() {
             if (this.state.hero.isDead || (this.state.hero.hp || 0) <= 0) return;
             const lvl = this.state.treeSkills?.thf_act || 0;
             if (lvl < 1) { this.showNotification('Desbloqueie Emboscada Letal na Árvore!'); return; }
-            if ((this.state.hero.energy || 0) < 35) {
-                this.addLog('Energia insuficiente para Emboscada Letal! (35 ⚡)', 'danger');
-                this.showNotification('Energia insuficiente (35 ⚡)!');
+            const isSilenced = this.state.tower?.inBattle && this.state.tower?.modifier?.id === 'silence';
+            const cost = 35 * (isSilenced ? 2 : 1);
+            if ((this.state.hero.energy || 0) < cost) {
+                this.addLog(`Energia insuficiente para Emboscada Letal! (${cost} ⚡)`, 'danger');
+                this.showNotification(`Energia insuficiente (${cost} ⚡)!`);
                 return;
             }
             if (this.ambushTimer > 0) return;
+
+            const crowMult = 1 + 0.15 * getPetBonusMultiplier(this.state, 'corvo_arcano');
+
+            if (this.state.worldBoss?.inBattle) {
+                this.state.hero.energy -= cost;
+                this.ambushTimer = 12;
+                trackQuestProgress(this.state, 'CRITICAL_HITS', 1);
+                const dmg = Math.floor(this.state.derived.str * (4 + lvl) * 1.5 * crowMult);
+                this.state.worldBoss.damageDealt = (this.state.worldBoss.damageDealt || 0) + dmg;
+                this.state.worldBoss.logs.unshift(`🗡️ Emboscada Crítica desferiu ${dmg.toLocaleString('pt-BR')} de dano ao Chefe Mundial!`);
+                if (this.state.worldBoss.logs.length > 35) this.state.worldBoss.logs.pop();
+                return;
+            }
 
             const target = this.state.tower?.inBattle && this.state.tower.monster
                 ? this.state.tower.monster
@@ -2051,10 +2599,15 @@ export function gameData() {
                 return;
             }
 
-            this.state.hero.energy -= 35;
+            this.state.hero.energy -= cost;
             this.ambushTimer = 12;
 
-            const dmg = Math.floor(this.state.derived.str * (4 + lvl) * 1.5);
+            trackQuestProgress(this.state, 'CRITICAL_HITS', 1);
+            if (this.state.lifetimeStats) {
+                this.state.lifetimeStats.criticalHits = (this.state.lifetimeStats.criticalHits || 0) + 1;
+            }
+
+            const dmg = Math.floor(this.state.derived.str * (4 + lvl) * 1.5 * crowMult);
             target.hp -= dmg;
             target.isHit = true;
             target.hitTimer = 0.5;
@@ -2471,6 +3024,42 @@ export function gameData() {
             this.addLog('Você saiu da Torre dos Desafios.', 'narrative');
         },
 
+        // ---- CHEFE MUNDIAL DIÁRIO (DPS CHECK 60s) ----
+
+        getDailyWorldBoss() {
+            return getDailyWorldBoss();
+        },
+
+        getWorldBossTierInfo(dmg) {
+            return getWorldBossTierInfo(dmg);
+        },
+
+        challengeWorldBoss(useExtraDiamond = false) {
+            if (this.state.hero.isDead) {
+                this.showNotification('Seu herói precisa estar vivo para enfrentar o Chefe Mundial!');
+                return;
+            }
+            this.state.isExploring = false;
+            if (this.state.tower) this.state.tower.inBattle = false;
+            const res = startWorldBossBattle(this.state, useExtraDiamond);
+            if (res.ok) {
+                this.addLog(res.msg, 'prestige');
+                this.showNotification(res.msg);
+            } else {
+                this.showNotification(res.msg);
+            }
+        },
+
+        leaveWorldBoss() {
+            if (!this.state.worldBoss?.inBattle) return;
+            const res = finishWorldBossBattle(this.state, 'retreat');
+            if (res) {
+                this.addLog(res.summary, 'prestige');
+                this.showNotification(`Batalha encerrada! ${res.tierName}`);
+                this.saveGame();
+            }
+        },
+
         // ---- MODAL DE INVENTÁRIO CHEIO (DROP PENDENTE) ----
 
         replaceItemWithDrop(inventoryIndex) {
@@ -2552,8 +3141,10 @@ export function gameData() {
                     const mReg = this.state.derived?.manaRegen || 2;
                     this.state.hero.mana = Math.min(mMax, (this.state.hero.mana || 0) + mReg * dt);
                 } else {
-                    // Respawn regen (mesma velocidade dos atributos do herói)
-                    this.state.hero.hp += (this.state.derived?.regen || 0.5) * dt;
+                    // Respawn regen (com bônus de recuperação pós-derrota do Paladino)
+                    const teDead = getTreeEffects(this.state);
+                    const deadMult = 1 + (teDead.paladin_utility || 0) * 0.50;
+                    this.state.hero.hp += (this.state.derived?.regen || 0.5) * deadMult * dt;
                     if (this.state.hero.hp >= (this.state.derived?.hpMax || 100)) {
                         this.state.hero.hp = this.state.derived?.hpMax || 100;
                         this.state.hero.isDead = false;
@@ -2569,10 +3160,11 @@ export function gameData() {
          * Não simula combate, apenas produção, regen e timers.
          */
         _processOfflineProgress(elapsedSec) {
-            // Cap dinâmico: 1 hora base + bônus do nó de utilidade da Árvore
+            // Cap dinâmico: 1 hora base + bônus do nó de utilidade da Árvore + Perk de Ascensão offline_cap (+2h/lvl)
             const te = getTreeEffects(this.state);
             const offlineBonusSec = (te.offline_cap_bonus || 0) * 30 * 60; // 30min por nível de nó
-            const sec = Math.min(elapsedSec, 3600 + offlineBonusSec);
+            const ascOfflineSec = (this.state.ascension?.perks?.offline_cap || 0) * 2 * 3600;
+            const sec = Math.min(elapsedSec, 3600 + offlineBonusSec + ascOfflineSec);
 
 
             // Produção de construções
@@ -2599,8 +3191,9 @@ export function gameData() {
                     (this.state.hero.mana || 0) + (this.state.derived?.manaRegen || 2) * sec
                 );
             } else {
-                // Respawn regen (velocidade normal baseada nos atributos)
-                const regenRate = (this.state.derived?.regen || 0.5);
+                // Respawn regen (velocidade normal baseada nos atributos + bônus Paladino)
+                const deadMult = 1 + (te.paladin_utility || 0) * 0.50;
+                const regenRate = (this.state.derived?.regen || 0.5) * deadMult;
                 this.state.hero.hp = (this.state.hero.hp || 0) + regenRate * sec;
                 if (this.state.hero.hp >= (this.state.derived?.hpMax || 100)) {
                     this.state.hero.hp = this.state.derived?.hpMax || 100;
@@ -2614,6 +3207,15 @@ export function gameData() {
                 this.state.oracleBuff.remaining = Math.max(0, Math.floor((this.state.oracleBuff.expiresAt - Date.now()) / 1000));
                 if (this.state.oracleBuff.remaining <= 0) {
                     this.state.oracleBuff = null;
+                }
+            }
+
+            // Atualiza buff da Estalagem da Taverna
+            if (this.state.tavernRestBuff?.expiresAt) {
+                this.state.tavernRestBuff.remaining = Math.max(0, Math.floor((this.state.tavernRestBuff.expiresAt - Date.now()) / 1000));
+                if (this.state.tavernRestBuff.remaining <= 0) {
+                    this.state.tavernRestBuff = null;
+                    this.recalcStats();
                 }
             }
 
@@ -2678,7 +3280,7 @@ export function gameData() {
                 // Produção de construções e tempo jogado
                 processBuildings(this.state, dt);
                 if (!this.state.lifetimeStats) {
-                    this.state.lifetimeStats = { kills: 0, bosses: 0, goldEarned: 0, itemsCrafted: 0, itemsUpgraded: 0, enchantmentsDone: 0, timePlayedSec: 0, highestTowerFloor: 1 };
+                    this.state.lifetimeStats = { kills: 0, bosses: 0, goldEarned: 0, itemsCrafted: 0, itemsUpgraded: 0, enchantmentsDone: 0, timePlayedSec: 0, highestTowerFloor: 1, criticalHits: 0 };
                 }
                 this.state.lifetimeStats.timePlayedSec = (this.state.lifetimeStats.timePlayedSec || 0) + dt;
 
@@ -2706,9 +3308,11 @@ export function gameData() {
                     this.state.hero.divineShieldTimer = Math.max(0, this.state.hero.divineShieldTimer - dt);
                 }
 
-                // Recuperação / respawn (regen normal baseada nos atributos)
+                // Recuperação / respawn (regen normal baseada nos atributos + bônus Paladino)
                 if (this.state.hero.isDead) {
-                    this.state.hero.hp += this.state.derived.regen * dt;
+                    const teDead = getTreeEffects(this.state);
+                    const deadMult = 1 + (teDead.paladin_utility || 0) * 0.50;
+                    this.state.hero.hp += this.state.derived.regen * deadMult * dt;
                     this.respawnPercent = Math.min(100, Math.floor((this.state.hero.hp / this.state.derived.hpMax) * 100));
                     // Respawn ao atingir X quantidade de HP
                     if (this.state.hero.hp >= this.state.derived.hpMax) {
@@ -2750,6 +3354,18 @@ export function gameData() {
                         }
                     }
 
+                    // Atualiza contagem regressiva do buff da Estalagem da Taverna
+                    if (this.state.tavernRestBuff) {
+                        if (this.state.tavernRestBuff.expiresAt) {
+                            this.state.tavernRestBuff.remaining = Math.max(0, Math.floor((this.state.tavernRestBuff.expiresAt - Date.now()) / 1000));
+                            if (this.state.tavernRestBuff.remaining <= 0) {
+                                this.state.tavernRestBuff = null;
+                                this.recalcStats();
+                                this.addLog('🍖 O efeito do Banquete da Estalagem terminou.', 'narrative');
+                            }
+                        }
+                    }
+
                     // Processa cerco da vila (Contagem regressiva de 3 minutos)
                     if (this.state.villageSiege?.active) {
                         this.state.villageSiege.timerSec -= dt;
@@ -2769,8 +3385,9 @@ export function gameData() {
 
                     // Processa Combate da Exploração
                     if (this.state.isExploring && this.state.monster) {
-                        // Injeta referências temporárias para a Árvore e Barreira no objeto hero
+                        // Injeta referências temporárias para a Árvore, Pets e Barreira no objeto hero
                         this.state.hero._treeSkills = this.state.treeSkills;
+                        this.state.hero._pets = this.state.pets;
                         this.state.hero._barrierShield = this.holyBarrierShieldHp;
 
                         const result = processCombatTick(
@@ -2797,6 +3414,13 @@ export function gameData() {
                             const f = makeHeroDmgFloat(this.canvas, result.dmgToMonster, result.isCritical);
                             if (f) this.pushCombatFloat(f);
 
+                            if (result.isCritical) {
+                                trackQuestProgress(this.state, 'CRITICAL_HITS', 1);
+                                if (this.state.lifetimeStats) {
+                                    this.state.lifetimeStats.criticalHits = (this.state.lifetimeStats.criticalHits || 0) + 1;
+                                }
+                            }
+
                             if (this.state.audioEnabled) {
                                 if (result.isCritical) playCritSlash(this.state.audioVolume);
                                 else playSwordSlash(this.state.audioVolume);
@@ -2805,9 +3429,32 @@ export function gameData() {
                             if (!this.state.statsSession) {
                                 this.state.statsSession = { startedAt: Date.now(), kills: 0, goldEarned: 0, xpEarned: 0, damageDealt: 0 };
                             }
-                            this.state.statsSession.damageDealt += result.dmgToMonster;
+                            this.state.statsSession.damageDealt += result.dmgToMonster + (result.petDmg || 0) + (result.bleedDmg || 0);
 
                             let procDelay = 120;
+                            // Relíquia: Golpe Duplo
+                            if (result.doubleStrike) {
+                                const ef = makeMonsterEffectFloat(this.canvas, '⚔️ GOLPE DUPLO!', '#fbbf24');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            }
+                            // Relíquia: Sangramento
+                            if (result.bleedDmg > 0) {
+                                const ef = makeMonsterEffectFloat(this.canvas, `🩸 -${result.bleedDmg} Sangramento`, '#ef4444');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            }
+                            // Ataque conjunto do Mascote Ativo
+                            if (result.petDmg > 0) {
+                                const ef = makeMonsterEffectFloat(this.canvas, `🐾 -${result.petDmg}`, '#38bdf8');
+                                if (ef) this.pushCombatFloat(ef, procDelay);
+                                procDelay += 120;
+                            }
+                            if (result.petHeal > 0) {
+                                const hf = makeHeroHealFloat(this.canvas, `🐾 +${result.petHeal} HP`, '#4ade80');
+                                if (hf) this.pushCombatFloat(hf, procDelay);
+                                procDelay += 120;
+                            }
                             // Bônus de Conjunto: Descarga Elétrica
                             if (result.chainLightning) {
                                 const ef = makeMonsterEffectFloat(this.canvas, '⚡ RAIO DUPLO!', '#fbbf24');
@@ -2905,6 +3552,17 @@ export function gameData() {
                     if (this.state.tower?.inBattle && this.state.tower.roomType === 'monster' && this.state.tower.monster) {
                         processTowerCombatTick(this.state, dt);
                         this._checkLevelUp();
+                    }
+
+                    // Processa Combate do Chefe Mundial Diário (60s DPS Check)
+                    if (this.state.worldBoss?.inBattle) {
+                        const wbRes = processWorldBossCombatTick(this.state, dt);
+                        if (wbRes) {
+                            this.addLog(wbRes.summary, 'prestige');
+                            this.showNotification(`🐉 Chefe Mundial: ${wbRes.tierName}! (${wbRes.damage.toLocaleString('pt-BR')} Dano)`);
+                            if (this.state.audioEnabled) playLevelUpFanfare(this.state.audioVolume);
+                            this.saveGame();
+                        }
                     }
                 }
 

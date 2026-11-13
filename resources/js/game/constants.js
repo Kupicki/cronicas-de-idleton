@@ -83,6 +83,89 @@ export const MONSTER_TYPES = MONSTER_BASE_TYPES.map(m => ({
 }));
 
 // ==========================================
+// BIOMAS DE EXPLORAÇÃO & TÍTULOS (GDD: Seções 8, 19, 26)
+// ==========================================
+export const ZONE_BIOMES = [
+    { minZone: 1,  maxZone: 2,  id: 'dark_forest',   name: 'Floresta Sombria',    icon: 'fa-tree',       color: '#22c55e', bgTop: '#07140e', bgBot: '#0f2218', desc: 'Árvores retorcidas sussurram segredos antigos na penumbra.' },
+    { minZone: 3,  maxZone: 4,  id: 'khaz_mines',    name: 'Minas de Khaz',       icon: 'fa-mountain',   color: '#94a3b8', bgTop: '#0f1218', bgBot: '#1c212c', desc: 'Túneis profundos ecoam com picaretas e gemas cintilantes.' },
+    { minZone: 5,  maxZone: 6,  id: 'black_swamp',   name: 'Pântano Negro',       icon: 'fa-skull',      color: '#84cc16', bgTop: '#0f1609', bgBot: '#1c2612', desc: 'Névoas venenosas encobrem águas traiçoeiras e feras famintas.' },
+    { minZone: 7,  maxZone: 8,  id: 'eldor_ruins',   name: 'Ruínas de Eldor',     icon: 'fa-monument',   color: '#eab308', bgTop: '#181209', bgBot: '#291f10', desc: 'Vestígios dourados de um império arcano engolido pelo tempo.' },
+    { minZone: 9,  maxZone: 10, id: 'storm_peak',    name: 'Pico da Tempestade',  icon: 'fa-bolt',       color: '#38bdf8', bgTop: '#08131e', bgBot: '#102436', desc: 'Relâmpagos eternos rasgam o céu congelante das alturas.' },
+    { minZone: 11, maxZone: 14, id: 'iron_citadel',  name: 'Cidadela de Ferro',   icon: 'fa-chess-rook', color: '#f97316', bgTop: '#1a0c08', bgBot: '#2d150e', desc: 'Fornalhas colossais alimentam legiões implacáveis de guerra.' },
+    { minZone: 15, maxZone: 999, id: 'void_abyss',   name: 'Abismo do Vácuo',     icon: 'fa-ankh',       color: '#a855f7', bgTop: '#11071a', bgBot: '#200e30', desc: 'Onde a realidade se desfaz e os titãs primordiais despertam.' },
+];
+
+export const HERO_TITLES = [
+    { minLevel: 1,   title: 'Zé Ninguém',          color: '#a8a29e', icon: 'fa-user' },
+    { minLevel: 5,   title: 'Aventureiro',         color: '#4ade80', icon: 'fa-compass' },
+    { minLevel: 10,  title: 'Caçador de Feras',    color: '#38bdf8', icon: 'fa-paw' },
+    { minLevel: 20,  title: 'Guerreiro de Idleton', color: '#60a5fa', icon: 'fa-shield-halved' },
+    { minLevel: 30,  title: 'Veterano de Guerra',  color: '#c084fc', icon: 'fa-khanda' },
+    { minLevel: 40,  title: 'Campeão do Reino',    color: '#facc15', icon: 'fa-medal' },
+    { minLevel: 50,  title: 'Herói Lendário',      color: '#fbbf24', icon: 'fa-crown' },
+    { minLevel: 70,  title: 'Guardião Imortal',    color: '#f97316', icon: 'fa-fire-flame-curved' },
+    { minLevel: 90,  title: 'Soberano Ancião',     color: '#ec4899', icon: 'fa-star' },
+    { minLevel: 120, title: 'Deus da Guerra',      color: '#ef4444', icon: 'fa-dragon' },
+];
+
+// Afixos de Monstros Campeões / Elite na Exploração (GDD: Seção 7)
+export const MONSTER_AFFIXES = [
+    { id: 'frenzy',   name: 'Frenético',          badge: '⚡ Frenético',   color: '#fbbf24', hpMult: 1.35, dmgMult: 1.25, rewardMult: 2.5, desc: 'Ataca 35% mais rápido' },
+    { id: 'vampiric', name: 'Sanguessuga',        badge: '🩸 Vampírico',   color: '#ef4444', hpMult: 1.45, dmgMult: 1.15, rewardMult: 2.6, desc: 'Drena vida a cada ataque' },
+    { id: 'thorns',   name: 'Espinhoso',          badge: '🌵 Espinhoso',   color: '#a855f7', hpMult: 1.50, dmgMult: 1.10, rewardMult: 2.8, desc: 'Reflete 8% do dano recebido' },
+    { id: 'hoarder',  name: 'Acumulador Dourado', badge: '💰 Acumulador',  color: '#eab308', hpMult: 1.60, dmgMult: 1.00, rewardMult: 4.0, desc: 'Carrega uma fortuna em Ouro e Materiais!' },
+    { id: 'colossus', name: 'Colossal',           badge: '🛡️ Colossal',    color: '#38bdf8', hpMult: 2.10, dmgMult: 1.20, rewardMult: 3.2, desc: 'Vitalidade extrema e saque reforçado' },
+];
+
+// Eventos Rápidos de Exploração (GDD: Seção 19)
+export const EXPLORATION_EVENTS = [
+    {
+        id: 'treasure_chest',
+        title: 'Baú Esquecido na Trilha',
+        icon: 'fa-box-open',
+        color: '#fbbf24',
+        desc: 'Você encontrou um baú trancado coberto de musgo brilhante entre os arbustos!',
+        choices: [
+            { id: 'careful', label: 'Abrir com Cuidado', icon: 'fa-key', tip: 'Ouro + Materiais garantidos' },
+            { id: 'force',   label: 'Arrombar Tranca',   icon: 'fa-hammer', tip: 'Chance de Equipamento Raro+ e 💎!' },
+        ],
+    },
+    {
+        id: 'runic_shrine',
+        title: 'Altar Rúnico Antigo',
+        icon: 'fa-monument',
+        color: '#a855f7',
+        desc: 'Runas ancestrais pulsam com energia mística no centro da clareira.',
+        choices: [
+            { id: 'pray',      label: 'Absorver Luz',     icon: 'fa-hands-praying', tip: 'Cura 100% HP/Mana/Energia + XP' },
+            { id: 'sacrifice', label: 'Oferendar Sangue', icon: 'fa-droplet',       tip: '-15% HP por Essências Mágicas e Ouro!' },
+        ],
+    },
+    {
+        id: 'wandering_merchant',
+        title: 'Caravana de Mercadores',
+        icon: 'fa-caravan',
+        color: '#10b981',
+        desc: 'Um mercador viajante agradece por você limpar a estrada de monstros!',
+        choices: [
+            { id: 'supplies', label: 'Aceitar Suprimentos', icon: 'fa-cubes-stacked', tip: 'Pacote de Madeira, Ferro e Sucata' },
+            { id: 'bounty',   label: 'Recompensa de Escolta', icon: 'fa-coins',       tip: 'Bolsa generosa de Ouro e XP' },
+        ],
+    },
+    {
+        id: 'crystal_spring',
+        title: 'Fonte Cristalina',
+        icon: 'fa-faucet-drip',
+        color: '#38bdf8',
+        desc: 'Águas límpidas emanam vigor restaurador e escondem relíquias no fundo.',
+        choices: [
+            { id: 'drink', label: 'Beber da Fonte',    icon: 'fa-heart-pulse', tip: 'Restaura tudo + Fúria temporária' },
+            { id: 'dive',  label: 'Mergulhar no Fundo', icon: 'fa-gem',        tip: 'Chance de Diamantes 💎 e Minérios' },
+        ],
+    },
+];
+
+// ==========================================
 // ORÁCULO (GDD: Seção 16)
 // ==========================================
 export const ORACLE_BUFFS = [
@@ -204,7 +287,7 @@ export const ENCHANTMENT_TYPES = [
 ];
 
 // ==========================================
-// TAVERNA & CIDADE (GDD: Seção 15)
+// TAVERNA & CIDADE (GDD: Seção 15 & Expansão 3.3)
 // ==========================================
 export const TAVERN_RUMORS = [
     "Dizem que há tesouros esquecidos nas profundezas das Minas de Khaz...",
@@ -214,10 +297,71 @@ export const TAVERN_RUMORS = [
     "Aventureiros que sabem a hora de recuar para treinar vivem para lutar outro dia.",
     "Os goblins adoram itens brilhantes. Se encontrar um chefe goblin, espere muito ouro!",
     "A cerveja de Idleton tem gosto de vitória... e um pouco de água da chuva.",
+    "Criaturas Campeãs com aura brilhante têm o triplo de recompensas na exploração!",
+    "O Contrabandista do Mercado Negro só aceita Diamantes, mas suas mercadorias são lendárias.",
+];
+
+export const TAVERN_CONTRACT_TEMPLATES = [
+    {
+        id: 'contract_wood',
+        title: 'Madeira para as Muralhas',
+        npc: 'Mestre Carpinteiro',
+        icon: 'fa-tree',
+        color: 'text-emerald-400',
+        resource: 'wood',
+        resourceName: 'Madeira',
+        baseQty: 25,
+        goldMult: 15,
+        xpMult: 12,
+        diamonds: 1,
+        desc: 'A guarda real precisa reforçar as paliçadas antes do cair da noite.',
+    },
+    {
+        id: 'contract_iron',
+        title: 'Lingotes para a Milícia',
+        npc: 'Capitão da Guarda',
+        icon: 'fa-cubes-stacked',
+        color: 'text-slate-300',
+        resource: 'iron',
+        resourceName: 'Ferro',
+        baseQty: 12,
+        goldMult: 28,
+        xpMult: 20,
+        diamonds: 1,
+        desc: 'Nossas lanças estão quebradas. Traga minério de ferro refinado!',
+    },
+    {
+        id: 'contract_scrap',
+        title: 'Engrenagens de Cerco',
+        npc: 'Engenheiro Anão',
+        icon: 'fa-cogs',
+        color: 'text-amber-400',
+        resource: 'scrap',
+        resourceName: 'Sucata',
+        baseQty: 20,
+        goldMult: 20,
+        xpMult: 16,
+        diamonds: 1,
+        desc: 'As catapultas da cidadela precisam de peças de reposição urgentes.',
+    },
+    {
+        id: 'contract_essence',
+        title: 'Elixir da Corte Arcana',
+        npc: 'Arquimago Valerius',
+        icon: 'fa-bolt',
+        color: 'text-purple-400',
+        resource: 'essence',
+        resourceName: 'Essência',
+        baseQty: 8,
+        goldMult: 55,
+        xpMult: 40,
+        diamonds: 2,
+        desc: 'Os selos mágicos do reino estão enfraquecendo. Precisamos de Essência pura!',
+    },
 ];
 
 // ==========================================
-// MERCADO (GDD: Seção 15)
+// MERCADO, ESCAMBO & MERCADO NEGRO (GDD: Seção 15 & Expansão 4.2)
 // ==========================================
 export const MARKET_ITEMS = [
     { id: 'wood',    name: 'Madeira Nobre',    icon: 'fa-tree',          color: 'text-emerald-500', costGold: 20,  qty: 10, desc: 'Usado para expandir domínios e estruturas' },
@@ -226,8 +370,56 @@ export const MARKET_ITEMS = [
     { id: 'essence', name: 'Essência Mágica',  icon: 'fa-bolt',          color: 'text-purple-400',  costGold: 100, qty: 1,  desc: 'Energia pura para encantamentos e alquimia' },
 ];
 
+export const MARKET_TRADES = [
+    { id: 'wood_to_iron',     name: 'Carpintaria por Minério', fromRes: 'wood',    fromName: 'Madeira',  fromIcon: '🌲', fromQty: 30, toRes: 'iron',    toName: 'Ferro',    toIcon: '🧱', toQty: 8,  desc: 'Troque toras de madeira por lingotes de ferro.' },
+    { id: 'iron_to_wood',     name: 'Ferramentas por Lenha',   fromRes: 'iron',    fromName: 'Ferro',    fromIcon: '🧱', fromQty: 10, toRes: 'wood',    toName: 'Madeira',  toIcon: '🌲', toQty: 25, desc: 'Forneça ferro em troca de carradas de madeira.' },
+    { id: 'scrap_to_iron',    name: 'Fundição de Sucata',      fromRes: 'scrap',   fromName: 'Sucata',   fromIcon: '⚙️', fromQty: 20, toRes: 'iron',    toName: 'Ferro',    toIcon: '🧱', toQty: 8,  desc: 'Recicle sucata metálica em ferro puro.' },
+    { id: 'iron_to_scrap',    name: 'Desmonte Industrial',     fromRes: 'iron',    fromName: 'Ferro',    fromIcon: '🧱', fromQty: 10, toRes: 'scrap',   toName: 'Sucata',   toIcon: '⚙️', toQty: 16, desc: 'Converta barras de ferro em peças de sucata.' },
+    { id: 'scrap_to_essence', name: 'Destilação Alquímica',    fromRes: 'scrap',   fromName: 'Sucata',   fromIcon: '⚙️', fromQty: 35, toRes: 'essence', toName: 'Essência', toIcon: '⚡', toQty: 4,  desc: 'Extraia resíduos arcanos de equipamentos desmontados.' },
+    { id: 'essence_to_iron',  name: 'Transmutação Elemental',  fromRes: 'essence', fromName: 'Essência', fromIcon: '⚡', fromQty: 5,  toRes: 'iron',    toName: 'Ferro',    toIcon: '🧱', toQty: 15, desc: 'Condense energia mágica em minério sólido.' },
+];
+
+export const BLACK_MARKET_OFFERS = [
+    {
+        id: 'bm_epic_chest',
+        name: 'Arca do Contrabandista',
+        icon: 'fa-box-open',
+        color: '#c084fc',
+        costDiamonds: 6,
+        badge: 'Épico / Lendário',
+        desc: 'Contém 1 equipamento garantido de raridade Épica (70%) ou Lendária (30%) calibrado ao seu nível.',
+    },
+    {
+        id: 'bm_set_reliquary',
+        name: 'Relicário Real de Conjunto',
+        icon: 'fa-crown',
+        color: '#fbbf24',
+        costDiamonds: 14,
+        badge: 'Conjunto Garantido',
+        desc: 'Forja 1 peça Lendária (75%) ou Mítica (25%) com Bônus de Conjunto 100% garantido!',
+    },
+    {
+        id: 'bm_elixir_stats',
+        name: 'Tomo Proibido dos Anciões',
+        icon: 'fa-book-skull',
+        color: '#38bdf8',
+        costDiamonds: 10,
+        badge: '+2 Atributos + XP',
+        desc: 'Concede +2 Pontos de Atributo permanentes para o herói e +50% do XP do nível atual.',
+    },
+    {
+        id: 'bm_war_chest',
+        name: 'Carregamento de Guerra',
+        icon: 'fa-Burst',
+        color: '#10b981',
+        costDiamonds: 5,
+        badge: 'Pacote de Recursos',
+        desc: 'Entrega imediata de +100 Madeira, +50 Ferro, +60 Sucata e +20 Essências Mágicas.',
+    },
+];
+
 // ==========================================
-// ASCENSÃO & PRESTÍGIO (GDD Expansão 1.4)
+// ASCENSÃO & PRESTÍGIO (GDD Expansão 1.4 & 2.1)
 // ==========================================
 export const ASCENSION_PERKS = [
     {
@@ -264,6 +456,60 @@ export const ASCENSION_PERKS = [
         color: '#38bdf8',
         cost: 2,
         desc: '+10% de chance de drops raros por nível (💠 Diamante Ancestral)',
+        bonusPerLevel: 0.10,
+    },
+    {
+        id: 'offline_cap',
+        name: 'Sono dos Justos',
+        icon: 'fa-hourglass-half',
+        color: '#34d399',
+        cost: 1,
+        desc: '+2 Horas no limite de progresso Offline por nível (💠 Diamante Ancestral)',
+        bonusPerLevel: 2,
+    },
+    {
+        id: 'eternal_str',
+        name: 'Força Primordial',
+        icon: 'fa-dumbbell',
+        color: '#f97316',
+        cost: 1,
+        desc: '+8 de Força (STR) e +4 de Agilidade (AGI) base por nível (💠 Diamante Ancestral)',
+        bonusPerLevel: 8,
+    },
+    {
+        id: 'eternal_def',
+        name: 'Égide Imortal',
+        icon: 'fa-shield-halved',
+        color: '#60a5fa',
+        cost: 1,
+        desc: '+8 de Defesa (DEF) e +80 de HP Máximo base por nível (💠 Diamante Ancestral)',
+        bonusPerLevel: 8,
+    },
+    {
+        id: 'crit_master',
+        name: 'Olho do Destino',
+        icon: 'fa-crosshairs',
+        color: '#e879f9',
+        cost: 2,
+        desc: '+3% Chance Crítica e +15% Dano Crítico permanentes por nível (💠)',
+        bonusPerLevel: 3,
+    },
+    {
+        id: 'fast_hunter',
+        name: 'Predador Temporal',
+        icon: 'fa-bolt',
+        color: '#facc15',
+        cost: 2,
+        desc: '+8% Velocidade de Ataque e busca de monstros acelerada por nível (💠)',
+        bonusPerLevel: 0.08,
+    },
+    {
+        id: 'double_loot',
+        name: 'Toque de Midas',
+        icon: 'fa-sack-dollar',
+        color: '#10b981',
+        cost: 2,
+        desc: '+10% de chance de Saque Duplo de materiais e itens por nível (💠)',
         bonusPerLevel: 0.10,
     },
 ];
@@ -442,6 +688,51 @@ export const QUEST_TYPES = [
         targetMultiplier: 1,
         descTemplate: (target) => `Melhore equipamentos ${target} vezes no Ferreiro`,
     },
+    {
+        type: 'CLEAR_TOWER',
+        title: 'Conquista da Torre',
+        icon: 'fa-dungeon',
+        color: 'text-purple-400',
+        baseTarget: 1,
+        targetMultiplier: 1,
+        descTemplate: (target) => `Conclua ${target} andar(es) na Torre dos Desafios`,
+    },
+    {
+        type: 'CRITICAL_HITS',
+        title: 'Golpes Precisos',
+        icon: 'fa-bolt',
+        color: 'text-yellow-400',
+        baseTarget: 8,
+        targetMultiplier: 4,
+        descTemplate: (target) => `Desfira ${target} Golpes Críticos em combate`,
+    },
+    {
+        type: 'FORGE_ITEMS',
+        title: 'Encomendas de Guerra',
+        icon: 'fa-anvil',
+        color: 'text-rose-400',
+        baseTarget: 1,
+        targetMultiplier: 1,
+        descTemplate: (target) => `Forje ou encante ${target} equipamento(s) no Ferreiro`,
+    },
+];
+
+// ==========================================
+// CONQUISTAS GLOBAIS (GDD: Seção 21)
+// ==========================================
+export const ACHIEVEMENTS = [
+    { id: 'ach_kills_100',   title: 'Caçador Iniciante',    desc: 'Elimine 100 monstros na jornada',              icon: 'fa-skull',            color: '#f87171', statKey: 'kills',      target: 100,    rewardDiamonds: 2,  rewardGold: 500 },
+    { id: 'ach_kills_1000',  title: 'Ceifador Implacável',  desc: 'Elimine 1.000 monstros na jornada',            icon: 'fa-skull-crossbones', color: '#ef4444', statKey: 'kills',      target: 1000,   rewardDiamonds: 5,  rewardGold: 3000 },
+    { id: 'ach_kills_5000',  title: 'Lenda do Massacre',    desc: 'Elimine 5.000 monstros na jornada',            icon: 'fa-fire-flame-curved', color: '#dc2626', statKey: 'kills',     target: 5000,   rewardDiamonds: 12, rewardGold: 15000 },
+    { id: 'ach_boss_10',     title: 'Matador de Gigantes',  desc: 'Derrote 10 Chefes de Zona',                    icon: 'fa-dragon',           color: '#fb923c', statKey: 'bosses',     target: 10,     rewardDiamonds: 3,  rewardGold: 1500 },
+    { id: 'ach_boss_50',     title: 'Terror dos Titãs',     desc: 'Derrote 50 Chefes de Zona',                    icon: 'fa-crown',            color: '#f59e0b', statKey: 'bosses',     target: 50,     rewardDiamonds: 8,  rewardGold: 8000 },
+    { id: 'ach_gold_10k',    title: 'Bolso Cheio',          desc: 'Acumule 10.000 de Ouro histórico',             icon: 'fa-coins',            color: '#fbbf24', statKey: 'goldEarned', target: 10000,  rewardDiamonds: 2,  rewardGold: 1000 },
+    { id: 'ach_gold_500k',   title: 'Magnata de Idleton',   desc: 'Acumule 500.000 de Ouro histórico',            icon: 'fa-sack-dollar',      color: '#eab308', statKey: 'goldEarned', target: 500000, rewardDiamonds: 10, rewardGold: 20000 },
+    { id: 'ach_tower_10',    title: 'Desbravador do Abismo', desc: 'Alcance o Andar 10 na Torre dos Desafios',    icon: 'fa-dungeon',          color: '#c084fc', statKey: 'towerFloor', target: 10,     rewardDiamonds: 4,  rewardGold: 2500 },
+    { id: 'ach_tower_30',    title: 'Senhor da Torre',      desc: 'Alcance o Andar 30 na Torre dos Desafios',     icon: 'fa-monument',         color: '#a855f7', statKey: 'towerFloor', target: 30,     rewardDiamonds: 10, rewardGold: 12000 },
+    { id: 'ach_forge_10',    title: 'Aprendiz da Bigorna',  desc: 'Forje ou aprimore equipamentos 10 vezes',      icon: 'fa-hammer',           color: '#38bdf8', statKey: 'forges',     target: 10,     rewardDiamonds: 3,  rewardGold: 1500 },
+    { id: 'ach_pets_4',      title: 'Senhor das Feras',     desc: 'Adote pelo menos 4 Mascotes diferentes',       icon: 'fa-paw',              color: '#34d399', statKey: 'petsOwned',  target: 4,      rewardDiamonds: 5,  rewardGold: 4000 },
+    { id: 'ach_ascend_1',    title: 'Despertar Divino',     desc: 'Realize sua primeira Ascensão da Linhagem',    icon: 'fa-star',             color: '#22d3ee', statKey: 'ascensions', target: 1,      rewardDiamonds: 10, rewardGold: 10000 },
 ];
 
 // ==========================================
@@ -486,6 +777,11 @@ export const CLASS_SPECIALIZATIONS = [
         role: 'DPS Sangrento & Fúria',
         desc: '+1% de Dano de Ataque a cada 2% de HP perdido. Fúria imparável em combate.',
         statBonus: { str: 10, lck: 5 },
+        passives: [
+            { name: 'Fúria Sangrenta', desc: '+1% de Dano a cada 2% de HP perdido.' },
+            { name: 'Vigor Selvagem (Atributo Fixo)', desc: '+10 Força (STR) e +5 Sorte (LCK) permanentes.' },
+            { name: 'Super Ativa Desbloqueável', desc: 'Golpe Devastador (dano massivo explosivo).' },
+        ],
     },
     {
         id: 'paladin',
@@ -494,7 +790,12 @@ export const CLASS_SPECIALIZATIONS = [
         color: '#facc15',
         role: 'Tanque Sagrado & Retaliação',
         desc: 'Cura 5% de todo dano sofrido e reflete 15% de volta como Dano Verdadeiro.',
-        statBonus: { def: 12, hp: 50 },
+        statBonus: { def: 12, hp: 80 },
+        passives: [
+            { name: 'Retaliação Sagrada', desc: 'Cura 5% do dano sofrido e reflete 15% como Dano Verdadeiro.' },
+            { name: 'Bênção do Templo (Atributo Fixo)', desc: '+12 Defesa (DEF) e +80 HP Máx permanentes.' },
+            { name: 'Super Ativa Desbloqueável', desc: 'Escudo Divino (Imunidade total a dano).' },
+        ],
     },
     {
         id: 'arcane_mage',
@@ -503,7 +804,12 @@ export const CLASS_SPECIALIZATIONS = [
         color: '#a855f7',
         role: 'Dano Mágico & Mana',
         desc: 'Consome 5 de Mana por ataque para causar explosões arcanas de +40% de dano ignorando 50% de armadura.',
-        statBonus: { int: 15, mana: 30 },
+        statBonus: { int: 15, agi: 5, mana: 30 },
+        passives: [
+            { name: 'Explosão Arcana', desc: 'Ataques consomem 5 Mana para causar +40% Dano e ignorar 50% DEF.' },
+            { name: 'Erudição Astral (Atributo Fixo)', desc: '+15 Inteligência (INT), +5 Agilidade e +30 Mana Máx.' },
+            { name: 'Super Ativa Desbloqueável', desc: 'Meteoro Arcano (Dano Verdadeiro escalado em INT).' },
+        ],
     },
     {
         id: 'shadow_thief',
@@ -512,7 +818,12 @@ export const CLASS_SPECIALIZATIONS = [
         color: '#10b981',
         role: 'Agilidade, Crítico & Pilhagem',
         desc: 'Dobra a chance de Esquiva natural e dobra a taxa de drops raros e materiais no Bestiário.',
-        statBonus: { agi: 12, lck: 10 },
+        statBonus: { agi: 12, lck: 12 },
+        passives: [
+            { name: 'Passo das Sombras', desc: 'Dobra a Esquiva natural e dobra a chance de materiais raros.' },
+            { name: 'Instinto Letal (Atributo Fixo)', desc: '+12 Agilidade (AGI) e +12 Sorte (LCK) permanentes.' },
+            { name: 'Super Ativa Desbloqueável', desc: 'Emboscada Letal (Crítico garantido + Veneno mortal).' },
+        ],
     },
 ];
 
@@ -924,6 +1235,211 @@ export function getTreeEffects(state) {
         const lvl = bought[node.id] || 0;
         if (lvl > 0) effects[node.effect] = (effects[node.effect] || 0) + lvl;
     });
+    // Aliases unificados para utilidades e pilhagem
+    const utilLvl = (effects.berserker_utility || 0) + (effects.paladin_utility || 0) + (effects.mage_utility || 0) + (effects.thief_utility || 0);
+    if (utilLvl > 0) {
+        effects.offline_cap_bonus = (effects.offline_cap_bonus || 0) + utilLvl;
+    }
+    if (effects.master_thief > 0 || effects.shadow_step_boost > 0) {
+        effects.loot_boost = (effects.loot_boost || 0) + (effects.master_thief || 0) * 2 + (effects.shadow_step_boost || 0);
+    }
     return effects;
 }
+
+// ==========================================
+// EVOLUÇÃO DE AFINIDADE & ÁRVORE DE TALENTOS DOS PETS
+// ==========================================
+export const PET_MAX_LEVEL = 10;
+
+export function getPetXpRequired(level = 1) {
+    return Math.floor(100 * Math.pow(1.45, Math.max(0, level - 1)));
+}
+
+export const PET_TALENTS = [
+    {
+        id: 'sharp_fangs',
+        name: 'Presas Afiadas',
+        icon: 'fa-paw',
+        color: '#ef4444',
+        maxLevel: 5,
+        descFn: (l) => `Aumenta o dano de combate do Pet Ativo em +${l * 25}% e concede +${l * 5}% de Chance Crítica ao Pet.`,
+    },
+    {
+        id: 'alpha_instinct',
+        name: 'Instinto Alfa',
+        icon: 'fa-crown',
+        color: '#fbbf24',
+        maxLevel: 5,
+        descFn: (l) => `Amplifica os bônus passivos de TODOS os Pets adotados em +${l * 10}% (Pet Ativo recebe +50% extra).`,
+    },
+    {
+        id: 'vital_bond',
+        name: 'Vínculo Vital',
+        icon: 'fa-heart-pulse',
+        color: '#4ade80',
+        maxLevel: 5,
+        descFn: (l) => `Cada ataque do Pet Ativo em combate restaura ${(l * 1.5).toFixed(1)}% do HP Máximo do Herói.`,
+    },
+    {
+        id: 'wind_wings',
+        name: 'Asas do Vento',
+        icon: 'fa-feather-pointed',
+        color: '#38bdf8',
+        maxLevel: 5,
+        descFn: (l) => `Reduz o tempo necessário de todas as Expedições de Mascotes em -${l * 8}%.`,
+    },
+    {
+        id: 'hunter_scent',
+        name: 'Faro de Caçador',
+        icon: 'fa-compass',
+        color: '#f97316',
+        maxLevel: 5,
+        descFn: (l) => `Aumenta as recompensas de Expedições de Mascotes em +${l * 15}% e o Ouro de monstros em +${l * 6}%.`,
+    },
+    {
+        id: 'primordial_roar',
+        name: 'Rugido Primordial',
+        icon: 'fa-dragon',
+        color: '#c084fc',
+        maxLevel: 5,
+        descFn: (l) => `O Pet Ativo causa +${l * 40}% de dano contra Chefes de Zona, Guardiões da Torre e o Chefe Mundial!`,
+    },
+];
+
+/**
+ * Calcula o multiplicador de eficiência do bônus passivo de um Pet possuído.
+ * Todos os pets adotados concedem seu bônus passivo (escalado pelo Nível de Afinidade e Instinto Alfa),
+ * e o Pet Ativo em combate recebe um bônus de sinergia adicional de +50% (1.5x).
+ */
+export function getPetBonusMultiplier(state, petId) {
+    if (!state?.pets?.owned?.includes(petId)) return 0;
+    const lvl = state.pets?.levels?.[petId] || 1;
+    const alphaLvl = state.pets?.talents?.alpha_instinct || 0;
+    const activeMult = state.pets?.active === petId ? 1.5 : 1.0;
+    return (1 + (lvl - 1) * 0.15) * (1 + alphaLvl * 0.10) * activeMult;
+}
+
+// ==========================================
+// MASMORRA DIÁRIA DE CHEFE MUNDIAL (WORLD BOSS — 60s DPS CHECK)
+// ==========================================
+export const WORLD_BOSS_DAILY_ATTEMPTS = 3;
+export const WORLD_BOSS_EXTRA_COST_DIAMONDS = 15;
+export const WORLD_BOSS_DURATION = 60; // 60 segundos de confronto
+
+export const WORLD_BOSSES = [
+    {
+        id: 'ignis_dragon',
+        name: 'Ignis, o Dragão do Apocalipse',
+        title: 'Titã das Cinzas Eternas',
+        icon: 'fa-dragon',
+        emoji: '🐉',
+        color: '#ef4444',
+        element: 'Fogo Primordial',
+        baseAtk: 35,
+        atkSpeed: 2.2,
+        traitDesc: 'Sopro Vulcânico: seu ataque escala +12% a cada 10s de batalha. Recompensa +20% Ouro extra.',
+        bonusResource: 'gold',
+        bonusMult: 1.20,
+    },
+    {
+        id: 'abyssal_leviathan',
+        name: 'Leviatã das Fendas Abissais',
+        title: 'Devorador dos Mares Profundos',
+        icon: 'fa-water',
+        emoji: '🐙',
+        color: '#38bdf8',
+        element: 'Abismo Cósmico',
+        baseAtk: 32,
+        atkSpeed: 2.0,
+        traitDesc: 'Maré Negra: drena 4 de Energia/Mana por golpe. Recompensa +25% Essência Mágica extra.',
+        bonusResource: 'essence',
+        bonusMult: 1.25,
+    },
+    {
+        id: 'obsidian_colossus',
+        name: 'Kronos, o Colosso de Obsidiana',
+        title: 'Forjador de Continentes',
+        icon: 'fa-shield-virus',
+        emoji: '🗿',
+        color: '#f59e0b',
+        element: 'Rocha Titânica',
+        baseAtk: 38,
+        atkSpeed: 2.5,
+        traitDesc: 'Crosta de Magma: reduz em 15% o dano físico direto. Recompensa +30% Ferro e Sucata extras.',
+        bonusResource: 'iron',
+        bonusMult: 1.30,
+    },
+    {
+        id: 'void_harbinger',
+        name: 'Valkyon, o Arauto do Vazio',
+        title: 'Sombra Devoradora de Estrelas',
+        icon: 'fa-skull-crossbones',
+        emoji: '👁️',
+        color: '#c084fc',
+        element: 'Vazio Astral',
+        baseAtk: 34,
+        atkSpeed: 1.9,
+        traitDesc: 'Foice Astral: golpes velozes que testam sua regeneração. Recompensa +20% Diamantes extras.',
+        bonusResource: 'diamond',
+        bonusMult: 1.20,
+    },
+];
+
+export const WORLD_BOSS_TIERS = [
+    {
+        tier: 1,
+        id: 'bronze',
+        name: 'Tier I — Bronze',
+        minDamage: 500,
+        color: '#d97706',
+        badgeClass: 'bg-amber-950/80 border-amber-700 text-amber-300',
+        rewards: { gold: 800, diamond: 3, essence: 8, scrap: 20, iron: 10, itemRarity: null, ancestralDiamonds: 0 },
+    },
+    {
+        tier: 2,
+        id: 'silver',
+        name: 'Tier II — Prata',
+        minDamage: 3000,
+        color: '#cbd5e1',
+        badgeClass: 'bg-slate-900 border-slate-500 text-slate-200',
+        rewards: { gold: 2500, diamond: 6, essence: 18, scrap: 35, iron: 25, itemRarity: 'rare', ancestralDiamonds: 0 },
+    },
+    {
+        tier: 3,
+        id: 'gold',
+        name: 'Tier III — Ouro',
+        minDamage: 12000,
+        color: '#fbbf24',
+        badgeClass: 'bg-yellow-950/80 border-yellow-500 text-yellow-300',
+        rewards: { gold: 7500, diamond: 10, essence: 35, scrap: 60, iron: 45, itemRarity: 'epic', ancestralDiamonds: 0 },
+    },
+    {
+        tier: 4,
+        id: 'platinum',
+        name: 'Tier IV — Platina',
+        minDamage: 45000,
+        color: '#38bdf8',
+        badgeClass: 'bg-cyan-950/80 border-cyan-400 text-cyan-200',
+        rewards: { gold: 20000, diamond: 16, essence: 65, scrap: 100, iron: 80, itemRarity: 'epic', ancestralDiamonds: 0 },
+    },
+    {
+        tier: 5,
+        id: 'diamond',
+        name: 'Tier V — Diamante',
+        minDamage: 150000,
+        color: '#c084fc',
+        badgeClass: 'bg-purple-950/80 border-purple-400 text-purple-200',
+        rewards: { gold: 50000, diamond: 25, essence: 120, scrap: 160, iron: 130, itemRarity: 'legendary', ancestralDiamonds: 0 },
+    },
+    {
+        tier: 6,
+        id: 'mythic',
+        name: 'Tier VI — Mítico Imortal',
+        minDamage: 450000,
+        color: '#f43f5e',
+        badgeClass: 'bg-rose-950/90 border-rose-400 text-rose-200',
+        rewards: { gold: 120000, diamond: 40, essence: 220, scrap: 260, iron: 220, itemRarity: 'mythic', ancestralDiamonds: 1 },
+    },
+];
+
 

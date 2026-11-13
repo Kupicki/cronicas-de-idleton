@@ -2,11 +2,23 @@ import {
     MONSTER_BASE_TYPES,
     MONSTER_ADJECTIVES,
     MONSTER_ELEMENTS,
+    MONSTER_AFFIXES,
     BOSS_PREFIXES,
     BOSS_SUFFIXES,
     TOWER_MODIFIERS,
+    RARITIES,
+    ITEM_TYPES,
+    ITEM_MATERIALS,
+    ITEM_SETS,
+    WORLD_BOSSES,
+    WORLD_BOSS_TIERS,
+    WORLD_BOSS_DAILY_ATTEMPTS,
+    WORLD_BOSS_EXTRA_COST_DIAMONDS,
+    WORLD_BOSS_DURATION,
+    getTreeEffects,
+    getPetBonusMultiplier,
 } from './constants.js';
-import { getTreeEffects } from './constants.js';
+import { trackQuestProgress } from './quests.js';
 import {
     calcMonsterHp, calcMonsterDmg, calcBossHp, calcBossDmg,
     calcMonsterGold, calcBossGold, calcMonsterXp, calcBossXp,
@@ -80,24 +92,42 @@ export function createMonster(zone, killsInZone, bossSafeMode = false) {
     }
 
     const baseType = pick(getTypesForZone(zone));
-    const hp  = Math.floor(calcMonsterHp(zone) * baseType.hpMult);
-    const dmg = Math.floor(calcMonsterDmg(zone) * baseType.dmgMult);
+    let hp       = Math.floor(calcMonsterHp(zone) * baseType.hpMult);
+    let dmg      = Math.floor(calcMonsterDmg(zone) * baseType.dmgMult);
+    let gold     = calcMonsterGold(zone, baseType.hpMult);
+    let xp       = calcMonsterXp(zone);
+    let atkSpeed = 1.5;
+    let affix    = null;
+    let name     = generateMonsterName(baseType);
+
+    // Chance de Monstro Campeão / Elite com Afixo a partir da Zona 2 (GDD: Seção 7)
+    if (zone >= 2 && Math.random() < 0.18 && MONSTER_AFFIXES?.length > 0) {
+        affix = pick(MONSTER_AFFIXES);
+        hp    = Math.max(10, Math.floor(hp * affix.hpMult));
+        dmg   = Math.max(2,  Math.floor(dmg * affix.dmgMult));
+        gold  = Math.max(5,  Math.floor(gold * affix.rewardMult));
+        xp    = Math.max(5,  Math.floor(xp * affix.rewardMult));
+        if (affix.id === 'frenzy') atkSpeed = 1.05;
+        name  = `★ ${name}`;
+    }
 
     return {
-        name:     generateMonsterName(baseType),
+        name,
         baseType: baseType.id,
         icon:     baseType.icon,
-        color:    baseType.color,
+        color:    affix ? affix.color : baseType.color,
         maxHp:    hp,
         hp:       hp,
         damage:   dmg,
-        atkSpeed: 1.5,
+        atkSpeed,
         atkTimer: 0,
         isBoss:   false,
+        isElite:  !!affix,
+        affix,
         isHit:    false,
         hitTimer: 0,
-        gold:     calcMonsterGold(zone, baseType.hpMult),
-        xp:       calcMonsterXp(zone),
+        gold,
+        xp,
     };
 }
 
@@ -177,16 +207,29 @@ export function calcHeroDmg(derived, monster, bestiary = {}, oracleBuff = null, 
 
     let baseDmg = Math.max(1, Math.floor(dmg * (0.8 + Math.random() * 0.4)));
 
-    // Encantamento: Fúria Tempestuosa (Raio: 20% chance de acerto crítico duplo)
+    // Chance de Acerto Crítico (Base 5% + Percepção + Sorte + Encantamento Raio + Ascensão + Árvore)
     const weaponEnchant = equipment?.weapon?.enchantment?.id;
+    let critChance = 5 + ((derived.per || 1) - 1) * 1.5 + ((derived.lck || 1) - 1) * 0.5;
+    if (weaponEnchant === 'lightning') critChance += 20;
+    if (ascension?.perks?.crit_master) critChance += ascension.perks.crit_master * 3;
+    if (te.master_thief)               critChance += te.master_thief * 6;
+    critChance = Math.min(75, critChance);
+
     let isCritical = false;
-    if (weaponEnchant === 'lightning' && Math.random() < 0.20) {
-        const critMult = setBonuses.storm4 ? 2.3 : 2.0;
+    if (Math.random() * 100 < critChance) {
+        const critMult = 1.75 + (setBonuses.storm4 ? 0.35 : 0) + ((ascension?.perks?.crit_master || 0) * 0.15);
         baseDmg = Math.floor(baseDmg * critMult);
         isCritical = true;
     }
 
-    return { dmg: baseDmg, isCritical, setBonuses };
+    // Relíquia Mítica: Manto Eólico da Harpia (10% chance de golpe duplo)
+    let doubleStrike = false;
+    if (equipment?.chest?.relicId === 'relic_chest' && Math.random() < 0.10) {
+        baseDmg *= 2;
+        doubleStrike = true;
+    }
+
+    return { dmg: baseDmg, isCritical, doubleStrike, setBonuses };
 }
 
 /**
@@ -199,10 +242,11 @@ export function calcKillRewards(monster, state) {
 
     const setBonuses = calcActiveSetBonuses(state.equipment || {});
 
-    // Bônus de Habilidade Passiva (Mãos de Ouro)
+    // Bônus de Habilidade Passiva (Mãos de Ouro) + Sinergia do Empório Comercial do Domínio
     const goldenHandsLvl = state.skills?.golden_hands?.level || 0;
-    if (goldenHandsLvl > 0) {
-        gold = Math.floor(gold * (1 + goldenHandsLvl * 0.05));
+    const marketBldQty   = state.buildings?.market?.qty || 0;
+    if (goldenHandsLvl > 0 || marketBldQty > 0) {
+        gold = Math.floor(gold * (1 + goldenHandsLvl * 0.05 + marketBldQty * 0.02));
     }
 
     // Bônus de Conjunto: Ouro do Ganancioso (4 peças: +25% Ouro)
@@ -210,13 +254,15 @@ export function calcKillRewards(monster, state) {
         gold = Math.floor(gold * 1.25);
     }
 
-    // Bônus de Companheiro / Pet
-    const activePet = state.pets?.active;
-    if (activePet === 'rato_ladrao') {
-        gold = Math.floor(gold * 1.20); // +20% de Ouro
+    // Bônus de Companheiro / Pet (Todos os Pets adotados + Nível de Afinidade + Instinto Alfa + Faro de Caçador)
+    const ratMult = getPetBonusMultiplier(state, 'rato_ladrao');
+    const scentLvl = state.pets?.talents?.hunter_scent || 0;
+    if (ratMult > 0 || scentLvl > 0) {
+        gold = Math.floor(gold * (1 + (0.20 * ratMult) + (scentLvl * 0.06)));
     }
-    if (activePet === 'coruja') {
-        xp = Math.floor(xp * 1.15); // +15% de XP
+    const owlMult = getPetBonusMultiplier(state, 'coruja');
+    if (owlMult > 0) {
+        xp = Math.floor(xp * (1 + 0.15 * owlMult));
     }
 
     // Bônus permanente de Ascensão (Cofre Ancestral: +15% Ouro / Mente Iluminada: +20% XP)
@@ -225,6 +271,11 @@ export function calcKillRewards(monster, state) {
     }
     if (state.ascension?.perks?.xp) {
         xp = Math.floor(xp * (1 + state.ascension.perks.xp * 0.20));
+    }
+
+    // Bônus de Descanso na Estalagem da Taverna (+20% XP em combate)
+    if (state.tavernRestBuff && state.tavernRestBuff.expiresAt > Date.now()) {
+        xp = Math.floor(xp * 1.20);
     }
 
     // Bônus do Oráculo (Bênção da Sabedoria: 2x XP)
@@ -240,9 +291,11 @@ export function calcKillRewards(monster, state) {
         isDoubleLoot = true;
     }
 
-    // Bônus da Árvore — Pilhagem Aperfeiçoada (Ladrão thf_p3: +15%/nível ouro e drops)
+    // Bônus da Árvore — Mão Leve & Saqueador (Ladrão thf_p3: +30%/nível ouro)
     const te = getTreeEffects(state);
-    if (te.loot_boost) {
+    if (te.master_thief) {
+        gold = Math.floor(gold * (1 + te.master_thief * 0.30));
+    } else if (te.loot_boost) {
         gold = Math.floor(gold * (1 + te.loot_boost * 0.15));
     }
 
@@ -371,8 +424,44 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         // poison_chance (Árvore Ladrão): chance de envenenar monstro
         if (te.poison_chance && !monster.poisoned && Math.random() < te.poison_chance * 0.15) {
             monster.poisoned = true;
-            monster.poisonTicks = 5; // 5 ticks de 2 dano/s
+            monster.poisonTicks = 5;
             monster.poisonTimer = 0;
+        }
+
+        // Relíquia Mítica: Lâmina Dentada de Kobold (Sangramento constante de 3% HP máx/golpe)
+        if (equipment?.weapon?.relicId === 'relic_blade') {
+            const bleedDmg = Math.max(2, Math.floor((monster.maxHp || 30) * 0.03));
+            result.dmgToMonster += bleedDmg;
+            result.bleedDmg = bleedDmg;
+        }
+
+        // Mascote Ativo auxilia no Combate de Exploração! (GDD Expansão 3.1 + Afinidade & Talentos Bestiais)
+        if (activePet) {
+            const auraMult = 1 + ((te.aura_of_light || 0) * 0.20);
+            const petLvl = hero._pets?.levels?.[activePet] || 1;
+            const petTalents = hero._pets?.talents || {};
+            const lvlMult = 1 + (petLvl - 1) * 0.20;
+            const fangsMult = 1 + (petTalents.sharp_fangs || 0) * 0.25;
+            const roarMult = (monster.isBoss || monster.isElite) ? (1 + (petTalents.primordial_roar || 0) * 0.40) : 1.0;
+            const isPetCrit = Math.random() * 100 < ((petTalents.sharp_fangs || 0) * 5);
+            const critMult = isPetCrit ? 1.8 : 1.0;
+            const petDmg = Math.max(1, Math.floor((derived.str || 5) * 0.22 * auraMult * lvlMult * fangsMult * roarMult * critMult));
+            result.petDmg = petDmg;
+            result.dmgToMonster += petDmg;
+
+            // Talento Vínculo Vital: cada ataque do Pet restaura 1.5%/nv do HP Máximo do Herói
+            if ((petTalents.vital_bond || 0) > 0) {
+                const bondHeal = Math.max(1, Math.floor(derived.hpMax * (petTalents.vital_bond * 0.015)));
+                hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + bondHeal);
+                result.petHeal = bondHeal;
+            }
+        }
+
+        // Monstro Elite Espinhoso: reflete 8% do dano recebido (não-letal)
+        if (monster.affix?.id === 'thorns' && hero.divineShieldTimer <= 0) {
+            const thornDmg = Math.max(1, Math.floor(result.dmgToMonster * 0.08));
+            hero.hp = Math.max(1, (hero.hp || 1) - thornDmg);
+            result.thornDmg = thornDmg;
         }
 
         monster.hp -= result.dmgToMonster;
@@ -425,6 +514,17 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
             const effectiveDef = setBonuses.protector4 ? derived.def * 1.15 : derived.def;
             result.dmgToHero = Math.max(1, Math.floor(monster.damage - effectiveDef * 0.5));
 
+            // Relíquia Mítica: Escudo de Placas de Golem (reduz dano de chefes em 20%)
+            if (monster.isBoss && equipment?.shield?.relicId === 'relic_shield') {
+                result.dmgToHero = Math.max(1, Math.floor(result.dmgToHero * 0.80));
+            }
+
+            // Monstro Elite Vampírico: regenera HP ao atacar
+            if (monster.affix?.id === 'vampiric' && monster.hp > 0) {
+                const vampAmt = Math.max(1, Math.floor(result.dmgToHero * 0.25));
+                monster.hp = Math.min(monster.maxHp, monster.hp + vampAmt);
+            }
+
             // Barreira Sagrada ativa (absorve dano antes do HP)
             if ((hero._barrierShield || 0) > 0) {
                 const absorbed = Math.min(hero._barrierShield, result.dmgToHero);
@@ -460,15 +560,21 @@ export function processCombatTick(dt, hero, monster, derived, bestiary = {}, ora
         }
     }
 
-    // Veneno do Ladrão: processa ticks de dano
-    if (monster.poisoned && monster.poisonTicks > 0) {
+    // Veneno do Ladrão: processa ticks de dano reais (Emboscada Letal / Passiva)
+    if (monster.poisoned && monster.poisonTicks > 0 && monster.hp > 0) {
         monster.poisonTimer = (monster.poisonTimer || 0) + dt;
         if (monster.poisonTimer >= 1) {
             monster.poisonTimer -= 1;
             monster.poisonTicks--;
-            monster.hp -= 2;
-            result.dmgToMonster += 2; // contabiliza p/ log
+            const pDmg = monster.poisonDmg || Math.max(2, Math.floor((derived.str || 5) * 0.20));
+            monster.hp -= pDmg;
+            result.dmgToMonster += pDmg;
+            result.poisonTickDmg = pDmg;
             if (monster.poisonTicks <= 0) monster.poisoned = false;
+            if (monster.hp <= 0) {
+                monster.hp = 0;
+                result.killed = true;
+            }
         }
     }
 
@@ -850,6 +956,7 @@ export function handleTowerMonsterKill(state) {
     if (!state.lifetimeStats) state.lifetimeStats = {};
     state.lifetimeStats.highestTowerFloor = Math.max(state.lifetimeStats.highestTowerFloor || 1, t.floor);
     state.lifetimeStats.bosses = (state.lifetimeStats.bosses || 0) + 1;
+    trackQuestProgress(state, 'CLEAR_TOWER', 1);
 
     t.logs.unshift(`🏆 VITÓRIA! Você conquistou o Andar ${t.floor}! Recompensas: +${r.gold || 0} 🪙, +${r.diamonds || 0} 💎, +${r.essence || 0} ⚡!`);
     return { finished: true, victory: true };
@@ -983,10 +1090,24 @@ export function processTowerCombatTick(state, dt) {
             t.logs.unshift(`🌿 Espinhos Profanos refletiram ${reflectDmg} de dano em você!`);
         }
 
-        // Mascote Ativo
+        // Mascote Ativo (com bônus da Keystone de Paladino Aura de Luz + Afinidade & Talentos Bestiais)
         if (state.pets?.active) {
-            const petDmg = Math.max(1, Math.floor((derived.str || 10) * 0.25));
+            const activePet = state.pets.active;
+            const te = getTreeEffects(state);
+            const auraMult = 1 + ((te.aura_of_light || 0) * 0.20);
+            const petLvl = state.pets?.levels?.[activePet] || 1;
+            const petTalents = state.pets?.talents || {};
+            const lvlMult = 1 + (petLvl - 1) * 0.20;
+            const fangsMult = 1 + (petTalents.sharp_fangs || 0) * 0.25;
+            const roarMult = (t.monsterIndex === 5 || m.isBoss) ? (1 + (petTalents.primordial_roar || 0) * 0.40) : 1.0;
+            const isPetCrit = Math.random() * 100 < ((petTalents.sharp_fangs || 0) * 5);
+            const petDmg = Math.max(1, Math.floor((derived.str || 10) * 0.25 * auraMult * lvlMult * fangsMult * roarMult * (isPetCrit ? 1.8 : 1.0)));
             m.hp -= petDmg;
+
+            if ((petTalents.vital_bond || 0) > 0 && modId !== 'curse') {
+                const bondHeal = Math.max(1, Math.floor(derived.hpMax * (petTalents.vital_bond * 0.015)));
+                hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + bondHeal);
+            }
         }
 
         // Derrota do monstro (comum avança wave, chefe ganha andar)
@@ -1138,5 +1259,326 @@ export function processSiegeCombatTick(state, dt) {
 
     return null;
 }
+
+// ==========================================
+// MASMORRA DIÁRIA DE CHEFE MUNDIAL (WORLD BOSS — 60s DPS CHECK)
+// ==========================================
+
+export function getDailyWorldBoss() {
+    const dayIndex = Math.floor(Date.now() / 86400000) % WORLD_BOSSES.length;
+    return WORLD_BOSSES[dayIndex] || WORLD_BOSSES[0];
+}
+
+export function syncWorldBossDailyReset(state) {
+    if (!state.worldBoss) {
+        state.worldBoss = {
+            inBattle: false,
+            timer: WORLD_BOSS_DURATION,
+            damageDealt: 0,
+            bossAtkTimer: 0,
+            bestDamage: 0,
+            dailyAttemptsLeft: WORLD_BOSS_DAILY_ATTEMPTS,
+            lastResetDate: '',
+            lastResult: null,
+            logs: [],
+        };
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (state.worldBoss.lastResetDate !== today) {
+        state.worldBoss.dailyAttemptsLeft = WORLD_BOSS_DAILY_ATTEMPTS;
+        state.worldBoss.lastResetDate = today;
+    }
+}
+
+export function getWorldBossTierInfo(damage = 0) {
+    let currentTier = null;
+    let nextTier = WORLD_BOSS_TIERS[0];
+
+    for (let i = 0; i < WORLD_BOSS_TIERS.length; i++) {
+        if (damage >= WORLD_BOSS_TIERS[i].minDamage) {
+            currentTier = WORLD_BOSS_TIERS[i];
+            nextTier = WORLD_BOSS_TIERS[i + 1] || null;
+        } else {
+            nextTier = WORLD_BOSS_TIERS[i];
+            break;
+        }
+    }
+
+    let progressPct = 100;
+    if (nextTier) {
+        const prevMin = currentTier ? currentTier.minDamage : 0;
+        const span = Math.max(1, nextTier.minDamage - prevMin);
+        progressPct = Math.min(100, Math.max(0, ((damage - prevMin) / span) * 100));
+    }
+
+    return { currentTier, nextTier, progressPct };
+}
+
+export function startWorldBossBattle(state, useExtraDiamond = false) {
+    syncWorldBossDailyReset(state);
+    const wb = state.worldBoss;
+
+    if (wb.inBattle) {
+        return { ok: false, msg: 'Você já está enfrentando o Chefe Mundial!' };
+    }
+    if (state.hero.isDead || (state.hero.hp || 0) <= 0) {
+        return { ok: false, msg: 'Recupere a vida do seu herói antes de desafiar o Chefe Mundial!' };
+    }
+
+    if ((wb.dailyAttemptsLeft || 0) <= 0) {
+        if (!useExtraDiamond) {
+            return { ok: false, msg: `Suas ${WORLD_BOSS_DAILY_ATTEMPTS} entradas diárias gratuitas acabaram! Use ${WORLD_BOSS_EXTRA_COST_DIAMONDS} 💎 para uma entrada extra.` };
+        }
+        if ((state.resources.diamond || 0) < WORLD_BOSS_EXTRA_COST_DIAMONDS) {
+            return { ok: false, msg: `Diamantes insuficientes para entrada extra (${WORLD_BOSS_EXTRA_COST_DIAMONDS} 💎)!` };
+        }
+        state.resources.diamond -= WORLD_BOSS_EXTRA_COST_DIAMONDS;
+    } else {
+        wb.dailyAttemptsLeft -= 1;
+    }
+
+    // Pausa exploração e torre para focar no confronto titânico
+    state.isExploring = false;
+    if (state.tower) state.tower.inBattle = false;
+
+    const bossDef = getDailyWorldBoss();
+    wb.inBattle = true;
+    wb.timer = WORLD_BOSS_DURATION;
+    wb.damageDealt = 0;
+    wb.heroAtkTimer = 0;
+    wb.bossAtkTimer = 0;
+    wb.petAtkTimer = 0;
+    wb.lastResult = null;
+    wb.logs = [
+        `🐉 Você adentrou a Fenda Titânica para enfrentar ${bossDef.name}! Cause o máximo de dano em ${WORLD_BOSS_DURATION} segundos!`,
+    ];
+
+    return { ok: true, msg: `⚔️ Confronto iniciado contra ${bossDef.name}!` };
+}
+
+export function finishWorldBossBattle(state, reason = 'time_up') {
+    const wb = state.worldBoss;
+    if (!wb) return null;
+
+    wb.inBattle = false;
+    const dmg = Math.floor(wb.damageDealt || 0);
+    const isNewRecord = dmg > (wb.bestDamage || 0);
+    if (isNewRecord) {
+        wb.bestDamage = dmg;
+    }
+
+    const bossDef = getDailyWorldBoss();
+    const { currentTier } = getWorldBossTierInfo(dmg);
+
+    // Se o herói caiu durante o teste de DPS, restaura 50% de HP sem penalidade de morte fora da arena
+    if ((state.hero.hp || 0) <= 0 || state.hero.isDead) {
+        state.hero.isDead = false;
+        state.hero.isRecovering = false;
+        state.hero.hp = Math.max(1, Math.floor((state.derived?.hpMax || 100) * 0.50));
+    }
+
+    if (!currentTier) {
+        wb.lastResult = {
+            damage: dmg,
+            isNewRecord,
+            reason,
+            tierName: 'Sem Classificação (< 500 Dano)',
+            badgeClass: 'bg-stone-900 border-stone-700 text-stone-400',
+            rewardsText: ['200 🪙 Ouro de Consolação'],
+        };
+        state.resources.gold = (state.resources.gold || 0) + 200;
+        return wb.lastResult;
+    }
+
+    const r = currentTier.rewards;
+    const goldMult = bossDef.bonusResource === 'gold' ? bossDef.bonusMult : 1.0;
+    const diamondMult = bossDef.bonusResource === 'diamond' ? bossDef.bonusMult : 1.0;
+    const essenceMult = bossDef.bonusResource === 'essence' ? bossDef.bonusMult : 1.0;
+    const ironMult = bossDef.bonusResource === 'iron' ? bossDef.bonusMult : 1.0;
+
+    const goldGain = Math.floor(r.gold * goldMult);
+    const diamondGain = Math.floor(r.diamond * diamondMult);
+    const essenceGain = Math.floor(r.essence * essenceMult);
+    const scrapGain = Math.floor(r.scrap * ironMult);
+    const ironGain = Math.floor(r.iron * ironMult);
+
+    state.resources.gold = (state.resources.gold || 0) + goldGain;
+    state.resources.diamond = (state.resources.diamond || 0) + diamondGain;
+    state.resources.essence = (state.resources.essence || 0) + essenceGain;
+    state.resources.scrap = (state.resources.scrap || 0) + scrapGain;
+    state.resources.iron = (state.resources.iron || 0) + ironGain;
+
+    trackQuestProgress(state, 'EARN_GOLD', goldGain);
+    trackQuestProgress(state, 'GATHER_MATERIALS', scrapGain);
+    trackQuestProgress(state, 'KILL_BOSS', 1);
+    if (state.lifetimeStats) {
+        state.lifetimeStats.bosses = (state.lifetimeStats.bosses || 0) + 1;
+        state.lifetimeStats.goldEarned = (state.lifetimeStats.goldEarned || 0) + goldGain;
+    }
+
+    const rewardsText = [
+        `+${goldGain.toLocaleString('pt-BR')} 🪙 Ouro`,
+        `+${diamondGain} 💎 Diamantes`,
+        `+${essenceGain} ⚡ Essência`,
+        `+${ironGain} 🧱 Ferro`,
+        `+${scrapGain} ⚙️ Sucata`,
+    ];
+
+    if (r.ancestralDiamonds > 0) {
+        state.resources.ancestralDiamonds = (state.resources.ancestralDiamonds || 0) + r.ancestralDiamonds;
+        rewardsText.push(`+${r.ancestralDiamonds} 💠 Diamante Ancestral!`);
+    }
+
+    // Gera equipamento garantido da raridade do Tier
+    if (r.itemRarity) {
+        const rarityDef = RARITIES.find(rar => rar.id === r.itemRarity) || RARITIES[2];
+        const typeDef = ITEM_TYPES[Math.floor(Math.random() * ITEM_TYPES.length)];
+        const setKeys = Object.keys(ITEM_SETS);
+        const setId = setKeys[Math.floor(Math.random() * setKeys.length)];
+        const mats = ITEM_MATERIALS[rarityDef.id] || ITEM_MATERIALS.rare;
+        const mat = mats[Math.floor(Math.random() * mats.length)];
+        const zoneScale = Math.max(state.maxZone || 1, Math.floor((state.hero?.level || 1) / 4) + 1);
+        const val = Math.max(3, Math.floor(typeDef.baseVal * rarityDef.mult * Math.pow(1.12, zoneScale)));
+
+        const item = {
+            id: Math.random().toString(36).substring(2, 9),
+            name: `${typeDef.name} ${mat} [${ITEM_SETS[setId].name.split(' ')[0]}]`,
+            type: typeDef.id,
+            icon: typeDef.icon,
+            rarity: rarityDef.id,
+            color: rarityDef.color,
+            stat: typeDef.stat,
+            val,
+            price: Math.floor(25 * rarityDef.mult * zoneScale),
+            level: 1,
+            setId,
+            isLocked: ['legendary', 'mythic'].includes(rarityDef.id),
+        };
+
+        const maxSlots = state.inventoryMaxSlots || 20;
+        if ((state.inventory || []).length < maxSlots) {
+            state.inventory.push(item);
+            rewardsText.push(`⚔️ ${item.name} (${rarityDef.name})`);
+        } else {
+            state.pendingDropItem = item;
+            rewardsText.push(`⚔️ ${item.name} (Aguardando vaga na bolsa!)`);
+        }
+    }
+
+    wb.lastResult = {
+        damage: dmg,
+        isNewRecord,
+        reason,
+        tierName: currentTier.name,
+        badgeClass: currentTier.badgeClass,
+        rewardsText,
+    };
+
+    return wb.lastResult;
+}
+
+export function processWorldBossCombatTick(state, dt) {
+    const wb = state.worldBoss;
+    if (!wb || !wb.inBattle) return null;
+
+    const bossDef = getDailyWorldBoss();
+    const hero = state.hero;
+    const derived = state.derived || {};
+    const te = getTreeEffects(state);
+
+    wb.timer = Math.max(0, (wb.timer || 0) - dt);
+    if (wb.timer <= 0) {
+        return finishWorldBossBattle(state, 'time_up');
+    }
+
+    // 1. Ataque do Herói contra o Chefe Mundial
+    wb.heroAtkTimer = (wb.heroAtkTimer || 0) + dt;
+    const heroAtkSpeed = Math.max(0.25, derived.atkSpeed || 1.5);
+    if (wb.heroAtkTimer >= heroAtkSpeed) {
+        wb.heroAtkTimer = 0;
+        const dummyBoss = { isBoss: true, baseType: 'boss', maxHp: 500000 };
+        const atk = calcHeroDmg(derived, dummyBoss, state.bestiary || {}, state.oracleBuff, state.pets?.active, state.equipment || {}, state.ascension, hero);
+        let finalDmg = atk.dmg;
+
+        // Passiva do Colosso de Obsidiana: -15% dano físico direto
+        if (bossDef.id === 'obsidian_colossus') {
+            finalDmg = Math.max(1, Math.floor(finalDmg * 0.85));
+        }
+
+        // Lâmina de Kobold: +15% dano de sangramento contra o Titã
+        if (state.equipment?.weapon?.relicId === 'relic_blade') {
+            finalDmg = Math.floor(finalDmg * 1.15);
+        }
+
+        wb.damageDealt = (wb.damageDealt || 0) + finalDmg;
+        if (state.statsSession) state.statsSession.damageDealt = (state.statsSession.damageDealt || 0) + finalDmg;
+        if (atk.isCritical) {
+            if (state.lifetimeStats) state.lifetimeStats.criticalHits = (state.lifetimeStats.criticalHits || 0) + 1;
+            trackQuestProgress(state, 'CRITICAL_HITS', 1);
+            wb.logs.unshift(`💥 CRÍTICO! Você causou ${finalDmg.toLocaleString('pt-BR')} de dano em ${bossDef.name}!`);
+        } else {
+            wb.logs.unshift(`⚔️ Seu golpe causou ${finalDmg.toLocaleString('pt-BR')} de dano!`);
+        }
+
+        // Mascote Ativo ataca junto com o Herói (com Rugido Primordial contra Chefes!)
+        if (state.pets?.active) {
+            const activePet = state.pets.active;
+            const petLvl = state.pets?.levels?.[activePet] || 1;
+            const petTalents = state.pets?.talents || {};
+            const auraMult = 1 + ((te.aura_of_light || 0) * 0.20);
+            const lvlMult = 1 + (petLvl - 1) * 0.20;
+            const fangsMult = 1 + (petTalents.sharp_fangs || 0) * 0.25;
+            const roarMult = 1 + (petTalents.primordial_roar || 0) * 0.40;
+            const isPetCrit = Math.random() * 100 < ((petTalents.sharp_fangs || 0) * 5);
+            const petDmg = Math.max(1, Math.floor((derived.str || 5) * 0.25 * auraMult * lvlMult * fangsMult * roarMult * (isPetCrit ? 1.8 : 1.0)));
+
+            wb.damageDealt += petDmg;
+            wb.logs.unshift(`🐾 Seu mascote causou +${petDmg.toLocaleString('pt-BR')} de dano feroz!`);
+
+            if ((petTalents.vital_bond || 0) > 0) {
+                const bondHeal = Math.max(1, Math.floor(derived.hpMax * (petTalents.vital_bond * 0.015)));
+                hero.hp = Math.min(derived.hpMax, (hero.hp || 0) + bondHeal);
+            }
+        }
+    }
+
+    // 2. Contra-Ataque do Chefe Mundial
+    wb.bossAtkTimer = (wb.bossAtkTimer || 0) + dt;
+    if (wb.bossAtkTimer >= (bossDef.atkSpeed || 2.2)) {
+        wb.bossAtkTimer = 0;
+
+        if (hero.divineShieldTimer > 0) {
+            wb.logs.unshift(`🛡️ Escudo Divino bloqueou completamente a fúria de ${bossDef.name}!`);
+        } else {
+            const elapsedSec = WORLD_BOSS_DURATION - wb.timer;
+            // Fúria do Titã escala com o tempo decorrido e com o nível do herói
+            const timeScale = 1 + Math.floor(elapsedSec / 10) * (bossDef.id === 'ignis_dragon' ? 0.16 : 0.10);
+            const rawBossAtk = Math.floor((bossDef.baseAtk + (hero.level || 1) * 4.5) * timeScale);
+            const effectiveDef = derived.def || 5;
+            let dmgToHero = Math.max(5, Math.floor(rawBossAtk - effectiveDef * 0.45));
+
+            if (state.equipment?.shield?.relicId === 'relic_shield') {
+                dmgToHero = Math.max(1, Math.floor(dmgToHero * 0.80));
+            }
+
+            hero.hp = Math.max(0, (hero.hp || 0) - dmgToHero);
+            wb.logs.unshift(`🔥 ${bossDef.name} contra-atacou causando ${dmgToHero} de dano!`);
+
+            if (bossDef.id === 'abyssal_leviathan') {
+                hero.energy = Math.max(0, (hero.energy || 0) - 4);
+                hero.mana = Math.max(0, (hero.mana || 0) - 4);
+            }
+
+            if (hero.hp <= 0) {
+                wb.logs.unshift(`💀 Você tombou diante do poder colossal de ${bossDef.name}! Calculando seu Dano Total...`);
+                return finishWorldBossBattle(state, 'hero_fell');
+            }
+        }
+    }
+
+    if (wb.logs.length > 20) wb.logs.length = 20;
+    return null;
+}
+
 
 

@@ -8,6 +8,7 @@ import {
     drawArenaBackground,
     drawDamageFloats,
 } from './visuals/index.js';
+import { PETS, ZONE_BIOMES } from './constants.js';
 
 // Paleta de cores para mensagens flutuantes
 const C = {
@@ -48,6 +49,19 @@ export function renderCanvas(ctx, canvas, state, derived, floats, stars, timesta
     // Desenha Fundo Arena via Biblioteca Visual
     drawArenaBackground(ctx, w, h, stars, timestamp);
 
+    // Atmosfera cromática sutil do Bioma atual (GDD: Seção 8)
+    const zone = state.zone || 1;
+    const biome = ZONE_BIOMES.find(b => zone >= b.minZone && zone <= b.maxZone) || ZONE_BIOMES[0];
+    if (biome) {
+        ctx.save();
+        const grad = ctx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, biome.bgTop + '55');
+        grad.addColorStop(1, biome.bgBot + '77');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+    }
+
     // Posições base
     const heroBaseX = w * 0.18;
     const heroBaseY = h - 82;
@@ -57,8 +71,43 @@ export function renderCanvas(ctx, canvas, state, derived, floats, stars, timesta
     // Desenha Herói com cosméticos de equipamentos ou sprite customizado
     drawHero(ctx, heroBaseX, heroBaseY, heroAttacking, state.hero.isDead, heroIsHit, state.equipment || {}, state.hero?.specialization);
 
-    // Desenha Monstro com rotinas visuais específicas
+    // Desenha Mascote Ativo acompanhando o Herói na Arena (GDD Expansão 3.1)
+    if (state.pets?.active && !state.hero.isDead) {
+        const petDef = PETS.find(p => p.id === state.pets.active);
+        if (petDef) {
+            const bobY = Math.sin((timestamp || 0) / 280) * 4;
+            const petX = Math.max(18, heroBaseX - 28 + (heroAttacking ? 8 : 0));
+            const petY = heroBaseY - 8 + bobY;
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(petX, petY, 13, 0, Math.PI * 2);
+            ctx.fillStyle = (petDef.color || '#fbbf24') + '28';
+            ctx.fill();
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = (petDef.color || '#fbbf24') + 'aa';
+            ctx.stroke();
+            ctx.font = '16px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(petDef.emoji || '🐾', petX, petY + 1);
+            ctx.restore();
+        }
+    }
+
+    // Desenha Monstro com rotinas visuais específicas + Aura de Campeão de Elite
     if (state.monster && state.isExploring && !state.hero.isDead) {
+        if (state.monster.isElite && state.monster.affix) {
+            ctx.save();
+            const pulse = 1 + Math.sin((timestamp || 0) / 180) * 0.12;
+            ctx.beginPath();
+            ctx.ellipse(monsterBaseX + 22, monsterBaseY + 28, 28 * pulse, 12 * pulse, 0, 0, Math.PI * 2);
+            ctx.fillStyle = (state.monster.affix.color || '#fbbf24') + '33';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = state.monster.affix.color || '#fbbf24';
+            ctx.stroke();
+            ctx.restore();
+        }
         drawMonster(ctx, monsterBaseX, monsterBaseY, state.monster, timestamp);
     }
 

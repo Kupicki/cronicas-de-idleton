@@ -3,7 +3,7 @@
 // ==========================================
 
 import { trackQuestProgress } from './quests.js';
-import { SKILL_TREE, getTreeEffects, getNodeUpgradeCost, getNodeTotalInvested } from './constants.js';
+import { SKILL_TREE, CLASS_SPECIALIZATIONS, RELIC_RECIPES, getTreeEffects, getNodeUpgradeCost, getNodeTotalInvested, getPetBonusMultiplier } from './constants.js';
 
 // getTreeEffects está em constants.js (evita dependência circular com combat.js)
 
@@ -110,13 +110,51 @@ export function recalcDerived(state) {
     // Regeneração de HP: 0.5 HP/s por ponto alocado em Regeneração
     let regen = reg * 0.5;
 
+    // Bônus Fixo de Especialização de Classe (GDD Expansão 2.2 — fora do pool de pontos)
+    const specId = state.hero?.specialization;
+    let specBonusMana = 0;
+    if (specId) {
+        const specDef = CLASS_SPECIALIZATIONS.find(s => s.id === specId);
+        if (specDef && specDef.statBonus) {
+            if (specDef.statBonus.str)  str   += specDef.statBonus.str;
+            if (specDef.statBonus.def)  def   += specDef.statBonus.def;
+            if (specDef.statBonus.int)  int   += specDef.statBonus.int;
+            if (specDef.statBonus.agi)  agi   += specDef.statBonus.agi;
+            if (specDef.statBonus.lck)  lck   += specDef.statBonus.lck;
+            if (specDef.statBonus.hp)   hpMax += specDef.statBonus.hp;
+            if (specDef.statBonus.mana) specBonusMana += specDef.statBonus.mana;
+        }
+    }
+
+    // Bônus Permanentes da Árvore de Ascensão (GDD Expansão 2.1)
+    const ascPerks = state.ascension?.perks || {};
+    if (ascPerks.eternal_str > 0) {
+        str += ascPerks.eternal_str * 8;
+        agi += ascPerks.eternal_str * 4;
+    }
+    if (ascPerks.eternal_def > 0) {
+        def   += ascPerks.eternal_def * 8;
+        hpMax += ascPerks.eternal_def * 80;
+    }
+
+    // Sinergias Utilitárias dos Prédios do Domínio (GDD Seção 12 & Expansão 4.1)
+    const b = state.buildings || {};
+    if (b.hut?.qty > 0)      hpMax += b.hut.qty * 2;
+    if (b.farm?.qty > 0)     regen += b.farm.qty * 0.15;
+    if (b.library?.qty > 0)  int   += b.library.qty * 2;
+    if (b.garrison?.qty > 0) {
+        str += b.garrison.qty * 3;
+        def += b.garrison.qty * 3;
+    }
+
     // Habilidades passivas clássicas
     if (skills?.flat_resilience)  hpMax += skills.flat_resilience.level  * 20;
     if (skills?.flat_strength)    str   += skills.flat_strength.level    * 5;
     if (skills?.thick_hide)       def   += skills.thick_hide.level       * 5;
     if (skills?.percent_strength) str    = Math.floor(str * (1 + skills.percent_strength.level * 0.02));
 
-    // Equipamentos
+    // Equipamentos & Relíquias Míticas (incluindo atributos secundários de relíquias)
+    const setCounts = {};
     Object.values(equipment || {}).forEach(eq => {
         if (!eq) return;
         if (eq.stat === 'hpMax') hpMax += eq.val;
@@ -124,14 +162,38 @@ export function recalcDerived(state) {
         if (eq.stat === 'def')   def   += eq.val;
         if (eq.stat === 'int')   int   += eq.val;
         if (eq.stat === 'agi')   agi   += eq.val;
+        if (eq.setId) setCounts[eq.setId] = (setCounts[eq.setId] || 0) + 1;
+
+        // Atributos secundários das Relíquias Ancestrais
+        if (eq.relicId) {
+            const relicDef = RELIC_RECIPES.find(r => r.id === eq.relicId);
+            if (relicDef && relicDef.stats) {
+                if (relicDef.stats.lck && eq.stat !== 'lck') lck   += relicDef.stats.lck;
+                if (relicDef.stats.hp  && eq.stat !== 'hpMax') hpMax += relicDef.stats.hp;
+                if (relicDef.stats.def && eq.stat !== 'def') def   += relicDef.stats.def;
+                if (relicDef.stats.agi && eq.stat !== 'agi') agi   += relicDef.stats.agi;
+            }
+        }
     });
 
-    // Bônus de Pets / Companheiros (GDD: Seção 18)
-    const activePet = state.pets?.active;
-    if (activePet === 'lobo_alfa')  str   = Math.floor(str * 1.12);
-    if (activePet === 'golem_mini') def   = Math.floor(def * 1.15);
-    if (activePet === 'salamandra') regen += 0.5;
-    if (activePet === 'raposa')     lck   += 2;
+    // Bônus de Conjunto Protetor (4 peças: +15% Armadura & +10% HP Máx)
+    if ((setCounts.protector || 0) >= 4) {
+        def   = Math.floor(def * 1.15);
+        hpMax = Math.floor(hpMax * 1.10);
+    }
+
+    // Bônus de Pets / Companheiros (GDD: Seção 18 + Nível de Afinidade & Instinto Alfa)
+    const wolfMult = getPetBonusMultiplier(state, 'lobo_alfa');
+    if (wolfMult > 0) str = Math.floor(str * (1 + 0.12 * wolfMult));
+
+    const golemMult = getPetBonusMultiplier(state, 'golem_mini');
+    if (golemMult > 0) def = Math.floor(def * (1 + 0.15 * golemMult));
+
+    const salMult = getPetBonusMultiplier(state, 'salamandra');
+    if (salMult > 0) regen += 0.5 * salMult;
+
+    const foxMult = getPetBonusMultiplier(state, 'raposa');
+    if (foxMult > 0) lck += Math.floor(2 * foxMult);
 
     // Bônus da Árvore de Habilidades (GDD Fase 2.2 + Expansão 4A)
     const te = getTreeEffects(state);
@@ -157,15 +219,29 @@ export function recalcDerived(state) {
 
     // Velocidade de ataque (GDD: base 2.0s - AGI * 0.05s)
     let atkSpeed = Math.max(0.2, 2.0 - (agi * 0.05));
-    if (activePet === 'pantera') {
-        atkSpeed = Math.max(0.2, atkSpeed * 0.90); // +10% velocidade de ataque
+    const pantherMult = getPetBonusMultiplier(state, 'pantera');
+    if (pantherMult > 0) {
+        atkSpeed = Math.max(0.2, atkSpeed * Math.max(0.5, 1 - 0.10 * pantherMult));
+    }
+    if ((setCounts.storm || 0) >= 4) {
+        atkSpeed = Math.max(0.2, atkSpeed * 0.90); // Conjunto Tempestade 4p: +10% Vel. Ataque
+    }
+    if (ascPerks.fast_hunter > 0) {
+        atkSpeed = Math.max(0.2, atkSpeed * Math.max(0.4, 1 - ascPerks.fast_hunter * 0.08));
     }
 
     // Energia e Mana balanceadas
     const energyMax   = 25 + (ene * 5);
-    const energyRegen = 0.5 + (ene * 0.5);
-    let manaMax     = 25 + (int * 5);
-    let manaRegen   = 0.2 + (int * 0.1);
+    let energyRegen   = 0.5 + (ene * 0.5);
+    let manaMax       = 25 + (int * 5) + specBonusMana;
+    let manaRegen     = 0.2 + (int * 0.1);
+
+    // Buff de Descanso na Estalagem da Taverna (GDD Expansão 3.3: +35% Regen HP/Energia/Mana)
+    if (state.tavernRestBuff && state.tavernRestBuff.expiresAt > Date.now()) {
+        regen       *= 1.35;
+        energyRegen *= 1.35;
+        manaRegen   *= 1.35;
+    }
 
     // Bônus de mana da Árvore (Mago Arcano)
     if (te.mana_overload) {

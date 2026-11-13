@@ -61,25 +61,45 @@ export const defaultState = {
         iron: 0,
     },
     buildings: {
-        hut: { name: 'Cabana', qty: 0, baseCost: 150, prod: 0.5 },
-        farm: { name: 'Fazenda', qty: 0, baseCost: 600, prod: 1.5 },
-        workshop: { name: 'Oficina', qty: 0, baseCost: 2500, prod: 4.0 },
-        mine: { name: 'Mina', qty: 0, baseCost: 10000, prod: 10.0 },
-        market: { name: 'Mercado', qty: 0, baseCost: 40000, prod: 25.0 },
-        library: { name: 'Biblioteca', qty: 0, baseCost: 150000, prod: 60.0 },
-        garrison: { name: 'Quartel', qty: 0, baseCost: 600000, prod: 150.0 },
-        treasury: { name: 'Tesouro', qty: 0, baseCost: 2500000, prod: 400.0 },
-        castle: { name: 'Castelo', qty: 0, baseCost: 12000000, prod: 1000.0 },
+        hut:      { name: 'Cabana',            qty: 0, baseCost: 150,      prod: 0.5,    category: 'gold',      utilityDesc: '+2 HP Máx para o herói por nível',              utilityType: 'hp_flat',      utilityVal: 2 },
+        farm:     { name: 'Fazenda',           qty: 0, baseCost: 600,      prod: 1.5,    category: 'support',   utilityDesc: '+0.15 Regen de HP/s por nível',                  utilityType: 'regen_hp',     utilityVal: 0.15 },
+        sawmill:  { name: 'Serraria Real',     qty: 0, baseCost: 1400,     prod: 2.5,    category: 'resources', utilityDesc: 'Extrai Madeira 🌲 passivamente a cada 20s',      utilityType: 'passive_wood', utilityVal: 1 },
+        workshop: { name: 'Oficina',           qty: 0, baseCost: 2500,     prod: 4.0,    category: 'resources', utilityDesc: 'Recicla Sucata ⚙️ passivamente a cada 25s',     utilityType: 'passive_scrap', utilityVal: 1 },
+        mine:     { name: 'Mina Profunda',     qty: 0, baseCost: 10000,    prod: 10.0,   category: 'resources', utilityDesc: 'Extrai Ferro 🧱 passivamente a cada 30s',       utilityType: 'passive_iron', utilityVal: 1 },
+        market:   { name: 'Empório Comercial', qty: 0, baseCost: 40000,    prod: 25.0,   category: 'gold',      utilityDesc: '+2% Ouro obtido de monstros por nível',         utilityType: 'combat_gold',  utilityVal: 0.02 },
+        library:  { name: 'Biblioteca Arcana', qty: 0, baseCost: 150000,   prod: 60.0,   category: 'support',   utilityDesc: 'Gera +1.5 XP passivo/s e +2 INT por nível',      utilityType: 'passive_xp',   utilityVal: 1.5 },
+        garrison: { name: 'Quartel General',   qty: 0, baseCost: 600000,   prod: 150.0,  category: 'support',   utilityDesc: '+3 STR e +3 DEF para o herói por nível',        utilityType: 'combat_stats', utilityVal: 3 },
+        treasury: { name: 'Câmara do Tesouro', qty: 0, baseCost: 2500000,  prod: 400.0,  category: 'resources', utilityDesc: 'Condensa Essência ⚡ passivamente a cada 45s',   utilityType: 'passive_essence', utilityVal: 1 },
+        castle:   { name: 'Castelo Real',      qty: 0, baseCost: 12000000, prod: 1000.0, category: 'gold',      utilityDesc: '+5% Produção Global de Ouro no Domínio/nível',  utilityType: 'global_gold',  utilityVal: 0.05 },
     },
     domainLevel: 0,      // Fortificação do Domínio (+10% prod de ouro por nível, consome Madeira e Ouro)
     bestiary: {},
     quests: [],          // 4 missões ativas simultâneas [{ id, type, title, icon, color, desc, current, target, reward: { gold, diamond, xp, scrap }, completed, claimed }]
+    tavernContracts: [], // 3 contratos de suprimentos na Taverna (GDD Expansão 3.3)
+    tavernRestBuff: null, // { expiresAt, name } — Buff de Descanso na Estalagem (GDD Expansão 3.3)
+    explorationEvent: null, // Evento rápido interativo na tela de exploração (GDD Seção 19)
+    achievementsClaimed: {}, // { [achId]: true } (GDD Seção 21)
     pets: {
         tamerUnlocked: false, // Desbloqueado ao contratar o Domador na Taverna (5.000 Ouro)
         owned: [],            // IDs dos pets comprados ['coruja', 'pantera', ...]
         active: null,         // ID do pet ativo ('coruja', 'lobo_alfa', etc)
+        levels: {},           // { [petId]: 1..10 } — Nível de Afinidade de cada Pet
+        xp: {},               // { [petId]: number } — XP atual de Afinidade de cada Pet
+        talents: {},          // { [talentId]: 0..5 } — Árvore de Talentos Bestiais
+        talentPoints: 0,      // Pontos de Talento Bestial disponíveis
     },
     petExpeditions: [],       // [{ id, petId, zoneId, durationMinutes, startedAt, expiresAt, rewards }]
+    worldBoss: {
+        inBattle: false,
+        timer: 60,
+        damageDealt: 0,
+        bossAtkTimer: 0,
+        bestDamage: 0,
+        dailyAttemptsLeft: 3,
+        lastResetDate: '',
+        lastResult: null,
+        logs: [],
+    },
     tower: {
         floor: 1,
         maxFloor: 1,
@@ -125,6 +145,7 @@ export const defaultState = {
         enchantmentsDone: 0,
         timePlayedSec: 0,
         highestTowerFloor: 1,
+        criticalHits: 0,
     },
     statsSession: {
         startedAt: Date.now(),
@@ -152,10 +173,16 @@ export const defaultState = {
         count: 0,
         totalAncestralEarned: 0, // Total de Diamantes Ancestrais já ganhos (histórico)
         perks: {
-            dmg: 0,   // Linhagem dos Deuses (+10% Dano por nível)
-            gold: 0,  // Cofre Ancestral (+15% Ouro por nível)
-            xp: 0,    // Mente Iluminada (+20% XP por nível)
-            drop: 0,  // Magnetismo de Recursos (+10% Chance de drop por nível)
+            dmg: 0,          // Linhagem dos Deuses (+10% Dano por nível)
+            gold: 0,         // Cofre Ancestral (+15% Ouro por nível)
+            xp: 0,           // Mente Iluminada (+20% XP por nível)
+            drop: 0,         // Magnetismo de Recursos (+10% Chance de drop por nível)
+            offline_cap: 0,  // Sono dos Justos (+2h limite offline por nível)
+            eternal_str: 0,  // Força Primordial (+8 STR, +4 AGI por nível)
+            eternal_def: 0,  // Égide Imortal (+8 DEF, +80 HP por nível)
+            crit_master: 0,  // Olho do Destino (+3% Crit, +15% Crit Dmg por nível)
+            fast_hunter: 0,  // Predador Temporal (+8% Vel. Ataque por nível)
+            double_loot: 0,  // Toque de Midas (+10% chance de saque duplo por nível)
         },
     },
     zone: 1,
